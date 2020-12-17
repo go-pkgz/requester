@@ -1,3 +1,4 @@
+// Package logger implements middleware for request logging.
 package logger
 
 import (

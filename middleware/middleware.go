@@ -1,3 +1,4 @@
+// Package middleware provides middlewares for htt.Client as RoundTripperHandler
 package middleware
 
 import (

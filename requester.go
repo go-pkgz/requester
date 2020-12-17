@@ -1,6 +1,7 @@
-// Package requester helps to make request and run it.
-// Adds predefined json headers and auth token.
-// Allows to run with optional repeater, circuit breaker and cache.
+// Package requester wraps http.Client with a chain of middleware.RoundTripperHandler.
+// Each RoundTripperHandler implements a part of functionality expanding http.Request oar altering
+// the flow in some way. Some middlewares set headers, some add logging and caching, some limit concurrency.
+// User can provide custom middlewares.
 package requester
 
 import (

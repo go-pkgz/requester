@@ -3,7 +3,7 @@
 [![Build Status](https://github.com/go-pkgz/repeater/workflows/build/badge.svg)](https://github.com/go-pkgz/requester/actions) [![Go Report Card](https://goreportcard.com/badge/github.com/go-pkgz/requester)](https://goreportcard.com/report/github.com/go-pkgz/requester) [![Coverage Status](https://coveralls.io/repos/github/go-pkgz/requester/badge.svg?branch=master)](https://coveralls.io/github/go-pkgz/requester?branch=master)
 
 
-Package provides very thin wrapper (no external dependencies) for `http.Client` allowing to use layers (middlewares) on `http.RoundTripper` level. 
+The package provides a very thin wrapper (no external dependencies) for `http.Client`, allowing to use of layers (middlewares) on `http.RoundTripper` level. 
 The goal is to keep the way users leverage stdlib http client but add a few useful extras. 
 
 _Pls note: this is not a replacement for http.Client but rather a companion library._
@@ -39,13 +39,13 @@ _Pls note: this is not a replacement for http.Client but rather a companion libr
 - `Logger` - sets logger, compatible with any implementation  of a single-method interface `Logf(format string, args ...interface{})`, for example [go-pkgz/lgr](https://github.com/go-pkgz/lgr)
 - `CircuitBreaker` - sets circuit breaker, interface compatible with [sony/gobreaker](https://github.com/sony/gobreaker)
 
-User can add any custom middleware. All it needs is a handler `RoundTripperHandler func(http.RoundTripper) http.RoundTripper`. 
+Users can add any custom middleware. All it needs is a handler `RoundTripperHandler func(http.RoundTripper) http.RoundTripper`. 
 Convenient functional adapter `middleware.RoundTripperFunc` provided.
  
 ### Logging 
 
 Logger should implement `Logger` interface with a single method `Logf(format string, args ...interface{})`. 
-For convince func type `LoggerFunc` provided as an adapter to allow the use of ordinary functions as `Logger`. 
+For convenience, func type `LoggerFunc` is provided as an adapter to allow the use of ordinary functions as `Logger`. 
 
 Two basic implementation included: 
 
@@ -58,14 +58,14 @@ logging options:
 - `WithBody` - allows request's body logging
 - `WithHeaders` - allows request's headers logging
 
-Note: if logging allowed it will log url, method and may log headers and the request body. 
-This may affect application security, for example if request pass some sensitive info as a part of body or header. 
-In this case consider turning logging off or provide your own logger suppressing all you need to hide. 
+Note: if logging is allowed, it will log URL, method, and may log headers and the request body. 
+It may affect application security. For example, if a request passes some sensitive info as a part of the body or header. 
+In this case, consider turning logging off or provide your own logger suppressing all you need to hide. 
 
 ### MaxConcurrent
 
-MaxConcurrent middleware can be used to limit concurrency of a given requester as well as to limit overall concurrency for multiple
-requesters. For the first case `MaxConcurrent(N)` should be created in the requester chain of middlewares, for example `rq := requester.New(http.Client{Timeout: 3 * time.Second}, middleware.MaxConcurrent(8))`. To make it global `MaxConcurrent` should be created once, outside of the chain and passed into each requester, i.e.
+MaxConcurrent middleware can be used to limit the concurrency of a given requester and limit overall concurrency for multiple
+requesters. For the first case, `MaxConcurrent(N)` should be created in the requester chain of middlewares, for example, `rq := requester.New(http.Client{Timeout: 3 * time.Second}, middleware.MaxConcurrent(8))`. To make it global, `MaxConcurrent` should be created once, outside of the chain and passed into each requester, i.e.
 
 ```go
 mc := middleware.MaxConcurrent(16)
@@ -81,37 +81,36 @@ be used directly, and in order to adopt other caches see provided `LoadingCacheF
 
 #### caching key and allowed requests
 
-By default only `GET` calls will be cached. This can be changed with `Methods(methods ...string)` option.
+By default, only `GET` calls are cached. This can be changed with `Methods(methods ...string)` option.
 The default key composed from the full URL.
 
-There are several options defining what part of the request will be used for the key:
+Several options are defining what part of the request will be used for the key:
 
 - `KeyWithHeaders` - adds all headers to a key
 - `KeyWithHeadersIncluded(headers ...string)` - adds only requested headers
 - `KeyWithHeadersExcluded(headers ...string) ` - adds all headers excluded
 - `KeyWithBody` - adds request's body, limited to the first 16k of the body
-- `KeyFunc` - any custom logic provided by caller
+- `KeyFunc` - any custom logic provided by the caller
 
 example: `cache.New(lruCache, cache.Methods("GET", "POST"), cache.KeyFunc() {func(r *http.Request) string {return r.Host})`
 
 
 #### cache and streaming response
 
-`Cache` is **not compatible** with http streaming mode. Practically this is rare and exotic case, but 
-allowing `Cache` will effectively transform streaming response to "get all" typical response. This is because cache
-has to read response body fully in order to save it, so technically streaming will be working but client will get
+`Cache` is **not compatible** with http streaming mode. Practically, this is rare and exotic, but allowing `Cache` will effectively transform the streaming response to a "get all" typical response. It is due to cache
+has to read response body fully to save it, so technically streaming will be working, but the client will get
 all the data at once. 
 
 ### Repeater
 
 `Repeater` expects a single method interface `Do(fn func() error, stopOnErrs ...error) (err error)`. [repeater](github.com/go-pkgz/repeater) can be used directly.
 
-By default repeater will retry on any error and any status code. However, user can pass `stopOnErrs` codes to eliminate retries, 
+By default, the repeater will retry on any error and any status code. However, user can pass `stopOnErrs` codes to eliminate retries, 
 for example: `Repeater(repeaterSvc, 500, 400)` won't repeat on 500 and 400 statuses.
 
 ### User-Defined Middlewares
 
-User can add any additional handlers (middleware) to the chain. Each middleware provides `middleware.RoundTripperHandler` and
+Users can add any additional handlers (middleware) to the chain. Each middleware provides `middleware.RoundTripperHandler` and
 can alter the request or implement any other custom functionality.
 
 Example of a handler resetting particular header:

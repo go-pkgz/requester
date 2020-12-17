@@ -17,14 +17,15 @@ func TestMiddleware_Handle(t *testing.T) {
 	outBuf := bytes.NewBuffer(nil)
 	loggerMock := &mocks.LoggerSvc{
 		LogfFunc: func(format string, args ...interface{}) {
-			outBuf.WriteString(fmt.Sprintf(format, args...))
+			_, _ = outBuf.WriteString(fmt.Sprintf(format, args...))
 		},
 	}
 	l := New(loggerMock)
 
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("k1", "v1")
-		w.Write([]byte("something"))
+		_, err := w.Write([]byte("something"))
+		require.NoError(t, err)
 	}))
 
 	client := http.Client{Transport: l.Middleware(http.DefaultTransport)}
@@ -46,14 +47,15 @@ func TestMiddleware_HandleWithOptions(t *testing.T) {
 	outBuf := bytes.NewBuffer(nil)
 	loggerMock := &mocks.LoggerSvc{
 		LogfFunc: func(format string, args ...interface{}) {
-			outBuf.WriteString(fmt.Sprintf(format, args...))
+			_, _ = outBuf.WriteString(fmt.Sprintf(format, args...))
 		},
 	}
 	l := New(loggerMock, WithBody, WithHeaders, Prefix("HIT"))
 
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("k1", "v1")
-		w.Write([]byte("something"))
+		_, err := w.Write([]byte("something"))
+		require.NoError(t, err)
 	}))
 
 	client := http.Client{Transport: l.Middleware(http.DefaultTransport)}

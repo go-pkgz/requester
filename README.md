@@ -128,7 +128,7 @@ maskHeader := func(http.RoundTripper) http.RoundTripper {
 rq := requester.New(http.Client{}, maskHeader)
 ```
 
-## Adding middleware to requester
+## Adding middleware to requesterÓ
 
 There are 3 ways to add middleware(s):
 

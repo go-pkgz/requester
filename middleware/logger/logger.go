@@ -39,10 +39,9 @@ func (m Middleware) Middleware(next http.RoundTripper) http.RoundTripper {
 		if m.prefix != "" {
 			logParts = append(logParts, m.prefix)
 		}
-		logParts = append(logParts, req.Method)
-		logParts = append(logParts, req.URL.String()+",")
+		logParts = append(logParts, req.Method, req.URL.String()+",")
 
-		headerLog := []byte{}
+		headerLog := []byte{} //nolint
 		if m.headers {
 			if headerLog, err = json.Marshal(req.Header); err != nil {
 				headerLog = []byte(fmt.Sprintf("headers: %v", req.Header))

@@ -62,7 +62,7 @@ func New(svc Service, opts ...func(m *Middleware)) *Middleware {
 // Middleware is the middleware wrapper injecting external cache.Service (LoadingCache) into the call chain.
 // Key extracted from the request and options defines what part of request should be used for key and what method
 // are allowed for caching.
-func (m Middleware) Middleware(next http.RoundTripper) http.RoundTripper {
+func (m *Middleware) Middleware(next http.RoundTripper) http.RoundTripper {
 	fn := func(req *http.Request) (resp *http.Response, err error) {
 
 		if m.Service == nil || !m.methodCacheable(req) {
@@ -95,31 +95,7 @@ func (m Middleware) Middleware(next http.RoundTripper) http.RoundTripper {
 	return middleware.RoundTripperFunc(fn)
 }
 
-func (m Middleware) extractCacheKey(req *http.Request) (key string, err error) {
-
-	headerAllowed := func(key string) bool {
-		if !m.keyComponents.headers.enabled {
-			return false
-		}
-		if len(m.keyComponents.headers.include) > 0 {
-			for _, h := range m.keyComponents.headers.include {
-				if strings.EqualFold(key, h) {
-					return true
-				}
-			}
-			return false
-		}
-
-		if len(m.keyComponents.headers.exclude) > 0 {
-			for _, h := range m.keyComponents.headers.exclude {
-				if strings.EqualFold(key, h) {
-					return false
-				}
-			}
-			return true
-		}
-		return true
-	}
+func (m *Middleware) extractCacheKey(req *http.Request) (key string, err error) {
 
 	bodyKey := func() (string, error) {
 		if req.Body == nil {
@@ -143,7 +119,7 @@ func (m Middleware) extractCacheKey(req *http.Request) (key string, err error) {
 	if m.keyComponents.headers.enabled && m.keyFunc == nil {
 		hh := []string{}
 		for k, h := range req.Header {
-			if headerAllowed(k) {
+			if m.headerAllowed(k) {
 				hh = append(hh, k+":"+strings.Join(h, "%%"))
 			}
 		}
@@ -163,7 +139,31 @@ func (m Middleware) extractCacheKey(req *http.Request) (key string, err error) {
 	return fmt.Sprintf("%x", sha256.Sum256([]byte(key))), err
 }
 
-func (m Middleware) methodCacheable(req *http.Request) bool {
+func (m *Middleware) headerAllowed(key string) bool {
+	if !m.keyComponents.headers.enabled {
+		return false
+	}
+	if len(m.keyComponents.headers.include) > 0 {
+		for _, h := range m.keyComponents.headers.include {
+			if strings.EqualFold(key, h) {
+				return true
+			}
+		}
+		return false
+	}
+
+	if len(m.keyComponents.headers.exclude) > 0 {
+		for _, h := range m.keyComponents.headers.exclude {
+			if strings.EqualFold(key, h) {
+				return false
+			}
+		}
+		return true
+	}
+	return true
+}
+
+func (m *Middleware) methodCacheable(req *http.Request) bool {
 	for _, m := range m.allowedMethods {
 		if strings.EqualFold(m, req.Method) {
 			return true

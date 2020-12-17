@@ -97,6 +97,7 @@ func Test_extractCacheKey(t *testing.T) {
 		},
 	}
 
+	//nolint scopelint
 	for i, tt := range tbl {
 		t.Run(strconv.Itoa(i), func(t *testing.T) {
 			c := New(nil, tt.opts...)
@@ -125,7 +126,8 @@ func TestMiddleware_Handle(t *testing.T) {
 
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("k1", "v1")
-		w.Write([]byte("something"))
+		_, err := w.Write([]byte("something"))
+		require.NoError(t, err)
 	}))
 
 	client := http.Client{Transport: c.Middleware(http.DefaultTransport)}
@@ -166,7 +168,8 @@ func TestMiddleware_HandleMethodDisabled(t *testing.T) {
 
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("k1", "v1")
-		w.Write([]byte("something"))
+		_, err := w.Write([]byte("something"))
+		require.NoError(t, err)
 	}))
 
 	client := http.Client{Transport: c.Middleware(http.DefaultTransport)}

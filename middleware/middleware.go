@@ -14,7 +14,7 @@ import (
 // 	Middleware(http.RoundTripper) http.RoundTripper
 // }
 
-// RoundTripperHandlerFunc is a type for middleware handler
+// RoundTripperHandler is a type for middleware handler
 type RoundTripperHandler func(http.RoundTripper) http.RoundTripper
 
 // RoundTripperFunc is a functional adapter for RoundTripperHandler

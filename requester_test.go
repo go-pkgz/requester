@@ -29,7 +29,8 @@ func TestRequester_DoSimpleMiddleware(t *testing.T) {
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		time.Sleep(100 * time.Millisecond)
 		assert.Equal(t, "blah", r.Header.Get("test"))
-		w.Write([]byte("something"))
+		_, err := w.Write([]byte("something"))
+		require.NoError(t, err)
 	}))
 	defer ts.Close()
 
@@ -66,7 +67,8 @@ func TestRequester_DoMiddlewareChain(t *testing.T) {
 		time.Sleep(100 * time.Millisecond)
 		assert.Equal(t, "blah", r.Header.Get("test"))
 		assert.Equal(t, "blah2", r.Header.Get("test2"))
-		w.Write([]byte("something"))
+		_, err := w.Write([]byte("something"))
+		require.NoError(t, err)
 	}))
 	defer ts.Close()
 
@@ -112,7 +114,8 @@ func TestRequester_With(t *testing.T) {
 		if atomic.LoadInt32(&count) == 1 {
 			assert.Equal(t, "blah2", r.Header.Get("test2"))
 		}
-		w.Write([]byte("something"))
+		_, err := w.Write([]byte("something"))
+		require.NoError(t, err)
 		atomic.AddInt32(&count, 1)
 	}))
 	defer ts.Close()
@@ -144,7 +147,8 @@ func TestRequester_Client(t *testing.T) {
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		time.Sleep(100 * time.Millisecond)
 		assert.Equal(t, "blah", r.Header.Get("test"))
-		w.Write([]byte("something"))
+		_, err := w.Write([]byte("something"))
+		require.NoError(t, err)
 	}))
 	defer ts.Close()
 
@@ -174,7 +178,8 @@ func TestRequester_CustomMiddleware(t *testing.T) {
 		body, err := ioutil.ReadAll(r.Body)
 		assert.NoError(t, err)
 		assert.Contains(t, string(body), "request body")
-		w.Write([]byte("something"))
+		_, err = w.Write([]byte("something"))
+		require.NoError(t, err)
 		time.Sleep(time.Duration(rand.Intn(10)) * time.Millisecond)
 	}))
 	defer ts.Close()

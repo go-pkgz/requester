@@ -28,7 +28,7 @@ _Pls note: this is not a replacement for http.Client but rather a companion libr
 `go get -u github.com/go-pkgz/requester`
 
 
-## `Requester` middlewares:
+## `Requester` middlewares
 
 - `Header` - appends user-defined headers to all requests. 
 - `JSOM` - sets headers `"Content-Type": "application/json"` and `"Accept": "application/json"`
@@ -127,7 +127,7 @@ maskHeader := func(http.RoundTripper) http.RoundTripper {
 rq := requester.New(http.Client{}, maskHeader)
 ```
 
-## Adding middleware to requesterÓ
+## Adding middleware to requester
 
 There are 3 ways to add middleware(s):
 

@@ -249,7 +249,7 @@ func ExampleRequester_Client() {
 	log.Printf("status: %s", resp.Status)
 }
 
-func ExampleRequester_WithleWith() {
+func ExampleRequester_With() {
 	rq1 := New(http.Client{Timeout: 3 * time.Second}, middleware.JSON) // make a requester with JSON middleware
 
 	// make another requester inherited from rq1 with extra middlewares

@@ -207,7 +207,7 @@ func ExampleNew() {
 	)
 }
 
-func ExampleDo() {
+func ExampleRequester_Do() {
 	rq := New(http.Client{Timeout: 3 * time.Second}) // make new requester
 
 	// add logger, auth header, user agent and JSON headers
@@ -232,7 +232,7 @@ func ExampleDo() {
 	log.Printf("status: %s", resp.Status)
 }
 
-func ExampleClient() {
+func ExampleRequester_Client() {
 	// make new requester with some middlewares
 	rq := New(http.Client{Timeout: 3 * time.Second},
 		middleware.JSON,
@@ -249,7 +249,7 @@ func ExampleClient() {
 	log.Printf("status: %s", resp.Status)
 }
 
-func ExampleWith() {
+func ExampleRequester_WithleWith() {
 	rq1 := New(http.Client{Timeout: 3 * time.Second}, middleware.JSON) // make a requester with JSON middleware
 
 	// make another requester inherited from rq1 with extra middlewares

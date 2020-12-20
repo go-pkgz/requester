@@ -3,6 +3,7 @@ package requester
 import (
 	"bytes"
 	"io/ioutil"
+	"log"
 	"math/rand"
 	"net/http"
 	"net/http/httptest"
@@ -192,4 +193,85 @@ func TestRequester_CustomMiddleware(t *testing.T) {
 	resp, err := rqMasked.Do(req)
 	require.NoError(t, err)
 	assert.Equal(t, 200, resp.StatusCode)
+}
+
+func ExampleNew() {
+	// make requester, set JSON headers middleware
+	rq := New(http.Client{Timeout: 3 * time.Second}, middleware.JSON)
+
+	// add auth header, user agent and a custom X-Auth header middlewared
+	rq.Use(
+		middleware.Header("X-Auth", "very-secret-key"),
+		middleware.Header("User-Agent", "test-requester"),
+		middleware.BasicAuth("user", "password"),
+	)
+}
+
+func ExampleDo() {
+	rq := New(http.Client{Timeout: 3 * time.Second}) // make new requester
+
+	// add logger, auth header, user agent and JSON headers
+	rq.Use(
+		middleware.Header("X-Auth", "very-secret-key"),
+		logger.New(logger.Std, logger.Prefix("REST"), logger.WithHeaders).Middleware, // uses std logger
+		middleware.Header("User-Agent", "test-requester"),
+		middleware.JSON,
+	)
+
+	// create http.Request
+	req, err := http.NewRequest("GET", "http://example.com", nil)
+	if err != nil {
+		panic(err)
+	}
+
+	// Send request and get reposnse
+	resp, err := rq.Do(req)
+	if err != nil {
+		panic(err)
+	}
+	log.Printf("status: %s", resp.Status)
+}
+
+func ExampleClient() {
+	// make new requester with some middlewares
+	rq := New(http.Client{Timeout: 3 * time.Second},
+		middleware.JSON,
+		middleware.Header("User-Agent", "test-requester"),
+		middleware.BasicAuth("user", "password"),
+		middleware.MaxConcurrent(4),
+	)
+
+	client := rq.Client() // get http.Client
+	resp, err := client.Get("http://example.com")
+	if err != nil {
+		panic(err)
+	}
+	log.Printf("status: %s", resp.Status)
+}
+
+func ExampleWith() {
+	rq1 := New(http.Client{Timeout: 3 * time.Second}, middleware.JSON) // make a requester with JSON middleware
+
+	// make another requester inherited from rq1 with extra middlewares
+	rq2 := rq1.With(middleware.BasicAuth("user", "password"), middleware.MaxConcurrent(4))
+
+	// create http.Request
+	req, err := http.NewRequest("GET", "http://example.com", nil)
+	if err != nil {
+		panic(err)
+	}
+
+	// send request with rq1 (JSON headers only)
+	resp, err := rq1.Do(req)
+	if err != nil {
+		panic(err)
+	}
+	log.Printf("status1: %s", resp.Status)
+
+	// send request with rq2 (JSON headers, basic auth and limiteted concurrecny)
+	resp, err = rq2.Do(req)
+	if err != nil {
+		panic(err)
+	}
+	log.Printf("status2: %s", resp.Status)
 }

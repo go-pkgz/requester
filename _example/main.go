@@ -62,13 +62,14 @@ func requestWithHeaders(ts *httptest.Server) {
 	log.Printf("status: %s", resp.Status)
 }
 
+// requestWithLogging example of logging
 func requestWithLogging(ts *httptest.Server) {
 	rq := requester.New(http.Client{Timeout: 3 * time.Second}, middleware.JSON) // make requester with JSON headers
 	// add auth header, user agent and JSON headers
 	// logging added after X-Auth to elinamte leaking it to the logs
 	rq.Use(
 		middleware.Header("X-Auth", "very-secret-key"),
-		logger.New(logger.Std, logger.Prefix("REST"), logger.WithHeaders).Middleware,
+		logger.New(logger.Std, logger.Prefix("REST"), logger.WithHeaders).Middleware, // uses std logger
 		middleware.Header("User-Agent", "test-requester"),
 		middleware.JSON,
 	)

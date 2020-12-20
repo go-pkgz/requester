@@ -1,6 +1,6 @@
 # Requester
 
-[![Build Status](https://github.com/go-pkgz/repeater/workflows/build/badge.svg)](https://github.com/go-pkgz/requester/actions)  [![Coverage Status](https://coveralls.io/repos/github/go-pkgz/requester/badge.svg?branch=master)](https://coveralls.io/github/go-pkgz/requester?branch=master)
+[![Build Status](https://github.com/go-pkgz/repeater/workflows/build/badge.svg)](https://github.com/go-pkgz/requester/actions) [![Coverage Status](https://coveralls.io/repos/github/go-pkgz/requester/badge.svg?branch=main)](https://coveralls.io/github/go-pkgz/requester?branch=main)
 
 
 The package provides a very thin wrapper (no external dependencies) for `http.Client`, allowing to use of layers (middlewares) on `http.RoundTripper` level. 

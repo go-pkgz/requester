@@ -31,7 +31,7 @@ _Pls note: this is not a replacement for http.Client but rather a companion libr
 ## `Requester` middlewares
 
 - `Header` - appends user-defined headers to all requests. 
-- `JSOM` - sets headers `"Content-Type": "application/json"` and `"Accept": "application/json"`
+- `JSON` - sets headers `"Content-Type": "application/json"` and `"Accept": "application/json"`
 - `BasicAuth(user, passwd string)` - adds HTTP Basic Authentication
 - `MaxConcurrent` - sets maximum concurrency
 - `Repeater` - sets repeater to retry failed requests. Doesn't provide repeater implementation but wraps it. Compatible with any repeater (for example [go-pkgz/repeater](https://github.com/go-pkgz/repeater)) implementing a single method interface `Do(ctx context.Context, fun func() error, errors ...error) (err error)` interface. 

@@ -1,6 +1,7 @@
 package middleware
 
 import (
+	"context"
 	"errors"
 	"net/http"
 	"sync/atomic"
@@ -23,7 +24,7 @@ func TestRepeater_Passed(t *testing.T) {
 		return resp, errors.New("blah")
 	}}
 
-	repeater := &mocks.RepeaterSvcMock{DoFunc: func(fun func() error, errs ...error) (err error) {
+	repeater := &mocks.RepeaterSvcMock{DoFunc: func(ctx context.Context, fun func() error, errs ...error) (err error) {
 		for i := 0; i < 5; i++ {
 			if err = fun(); err == nil {
 				return nil
@@ -51,7 +52,7 @@ func TestRepeater_Failed(t *testing.T) {
 		return resp, errors.New("http error")
 	}}
 
-	repeater := &mocks.RepeaterSvcMock{DoFunc: func(fun func() error, errs ...error) (err error) {
+	repeater := &mocks.RepeaterSvcMock{DoFunc: func(ctx context.Context, fun func() error, errs ...error) (err error) {
 		for i := 0; i < 5; i++ {
 			if err = fun(); err == nil {
 				return nil
@@ -78,7 +79,7 @@ func TestRepeater_FailedStatus(t *testing.T) {
 		return resp, nil
 	}}
 
-	repeater := &mocks.RepeaterSvcMock{DoFunc: func(fun func() error, errs ...error) (err error) {
+	repeater := &mocks.RepeaterSvcMock{DoFunc: func(ctx context.Context, fun func() error, errs ...error) (err error) {
 		for i := 0; i < 5; i++ {
 			if err = fun(); err == nil {
 				return nil

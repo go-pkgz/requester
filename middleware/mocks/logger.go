@@ -9,19 +9,19 @@ import (
 
 // LoggerSvc is a mock implementation of logger.Service.
 //
-//     func TestSomethingThatUsesService(t *testing.T) {
+// 	func TestSomethingThatUsesService(t *testing.T) {
 //
-//         // make and configure a mocked logger.Service
-//         mockedService := &LoggerSvc{
-//             LogfFunc: func(format string, args ...interface{})  {
-// 	               panic("mock out the Logf method")
-//             },
-//         }
+// 		// make and configure a mocked logger.Service
+// 		mockedService := &LoggerSvc{
+// 			LogfFunc: func(format string, args ...interface{})  {
+// 				panic("mock out the Logf method")
+// 			},
+// 		}
 //
-//         // use mockedService in code that requires logger.Service
-//         // and then make assertions.
+// 		// use mockedService in code that requires logger.Service
+// 		// and then make assertions.
 //
-//     }
+// 	}
 type LoggerSvc struct {
 	// LogfFunc mocks the Logf method.
 	LogfFunc func(format string, args ...interface{})

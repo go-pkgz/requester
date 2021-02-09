@@ -9,19 +9,19 @@ import (
 
 // CacheSvc is a mock implementation of cache.Service.
 //
-//     func TestSomethingThatUsesService(t *testing.T) {
+// 	func TestSomethingThatUsesService(t *testing.T) {
 //
-//         // make and configure a mocked cache.Service
-//         mockedService := &CacheSvc{
-//             GetFunc: func(key string, fn func() (interface{}, error)) (interface{}, error) {
-// 	               panic("mock out the Get method")
-//             },
-//         }
+// 		// make and configure a mocked cache.Service
+// 		mockedService := &CacheSvc{
+// 			GetFunc: func(key string, fn func() (interface{}, error)) (interface{}, error) {
+// 				panic("mock out the Get method")
+// 			},
+// 		}
 //
-//         // use mockedService in code that requires cache.Service
-//         // and then make assertions.
+// 		// use mockedService in code that requires cache.Service
+// 		// and then make assertions.
 //
-//     }
+// 	}
 type CacheSvc struct {
 	// GetFunc mocks the Get method.
 	GetFunc func(key string, fn func() (interface{}, error)) (interface{}, error)

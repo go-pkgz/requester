@@ -1,6 +1,7 @@
 package middleware
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"net/http"
@@ -8,7 +9,7 @@ import (
 
 // RepeaterSvc defines repeater interface
 type RepeaterSvc interface {
-	Do(fun func() error, errs ...error) (err error)
+	Do(ctx context.Context, fun func() error, errs ...error) (err error)
 }
 
 // Repeater sets middleware with provided RepeaterSvc to retry failed requests
@@ -23,7 +24,7 @@ func Repeater(repeater RepeaterSvc, failOnCodes ...int) RoundTripperHandler {
 
 			var resp *http.Response
 			var err error
-			e := repeater.Do(func() error {
+			e := repeater.Do(req.Context(), func() error {
 				resp, err = next.RoundTrip(req)
 				if err != nil {
 					return err

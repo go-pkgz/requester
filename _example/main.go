@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/go-pkgz/lcw"
+	"github.com/go-pkgz/repeater"
 
 	"github.com/go-pkgz/requester"
 	"github.com/go-pkgz/requester/middleware"
@@ -24,15 +25,21 @@ func main() {
 	ts := startTestServer()
 	defer ts.Close()
 
+	// start another test server returning 500 status on 5 first calls, for repeater demo
+	tsRep := startTestServerFailedFirst()
+	defer tsRep.Close()
+
 	requestWithHeaders(ts)
 	requestWithLogging(ts)
 	requestWithCache(ts)
 	requestWithCustom(ts)
 	requestWithLimitConcurrency(ts)
+	requestWithRepeater(tsRep)
 }
 
 // requestWithHeaders shows how to use requester with middleware altering headers
 func requestWithHeaders(ts *httptest.Server) {
+	log.Printf("requestWithHeaders --------------")
 	rq := requester.New(http.Client{Timeout: 3 * time.Second}, middleware.JSON) // make requester with JSON headers
 	// add auth header, user agent and basic auth
 	rq.Use(
@@ -65,6 +72,8 @@ func requestWithHeaders(ts *httptest.Server) {
 
 // requestWithLogging example of logging
 func requestWithLogging(ts *httptest.Server) {
+	log.Printf("requestWithLogging --------------")
+
 	rq := requester.New(http.Client{Timeout: 3 * time.Second}, middleware.JSON) // make requester with JSON headers
 	// add auth header, user agent and JSON headers
 	// logging added after setting X-Auth to eliminate leaking it to the logs
@@ -90,13 +99,16 @@ func requestWithLogging(ts *httptest.Server) {
 
 // requestWithCache example of using request cache
 func requestWithCache(ts *httptest.Server) {
+	log.Printf("requestWithCache --------------")
 
 	cacheService, err := lcw.NewLruCache(lcw.MaxKeys(100)) // make LRU loading cache
 	if err != nil {
 		panic(err)
 	}
 
-	cmw := cache.New(cacheService, cache.Methods("GET", "POST")) // create cache middleware
+	// create cache middleware, allowing GET and POST responses caching
+	// by default, caching key made from request's URL
+	cmw := cache.New(cacheService, cache.Methods("GET", "POST"))
 
 	// make requester with caching middleware and logger
 	rq := requester.New(http.Client{Timeout: 3 * time.Second},
@@ -130,6 +142,7 @@ func requestWithCache(ts *httptest.Server) {
 
 // requestWithCustom example of a custom, user provided middleware
 func requestWithCustom(ts *httptest.Server) {
+	log.Printf("requestWithCustom --------------")
 
 	// custom middleware, removes header foo
 	clearHeaders := func(next http.RoundTripper) http.RoundTripper {
@@ -164,6 +177,8 @@ var inFly int32
 
 // requestWithLimitConcurrency example of concurrency limiter
 func requestWithLimitConcurrency(ts *httptest.Server) {
+	log.Printf("requestWithLimitConcurrency --------------")
+
 	// make requester with logger and max concurrency 4
 	rq := requester.New(http.Client{Timeout: 3 * time.Second},
 		logger.New(logger.Std, logger.Prefix("REST CUSTOM"), logger.WithHeaders).Middleware,
@@ -185,11 +200,53 @@ func requestWithLimitConcurrency(ts *httptest.Server) {
 	wg.Wait()
 }
 
+// requestWithRepeater example of repeater usage
+func requestWithRepeater(ts *httptest.Server) {
+	log.Printf("requestWithRepeater --------------")
+
+	rpt := repeater.NewDefault(10, 500*time.Millisecond) // make a repeater with up to 10 calls, 500ms between calls
+	rq := requester.New(http.Client{},
+		// repeat failed call up to 10 times with 500ms delay on networking error or given status codes
+		middleware.Repeater(rpt, http.StatusInternalServerError, http.StatusBadGateway),
+		logger.New(logger.Std, logger.Prefix("REST REPT"), logger.WithHeaders).Middleware,
+	)
+
+	// create http.Request
+	req, err := http.NewRequest("GET", ts.URL+"/blah", nil)
+	if err != nil {
+		panic(err)
+	}
+
+	resp, err := rq.Do(req)
+	if err != nil {
+		panic(err)
+	}
+	log.Printf("status: %s", resp.Status)
+}
+
 func startTestServer() *httptest.Server {
 	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		c := atomic.AddInt32(&inFly, 1)
 		log.Printf("request: %+v (%d)", r, c)
 		time.Sleep(time.Duration(rand.Intn(100)) * time.Millisecond) // simulate random network latency
+		w.Header().Set("k1", "v1")
+		w.Write([]byte("something"))
+		atomic.AddInt32(&inFly, -1)
+	}))
+}
+
+func startTestServerFailedFirst() *httptest.Server {
+	var n int32
+	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		c := atomic.AddInt32(&inFly, 1)
+		log.Printf("request: %+v (%d)", r, c)
+		time.Sleep(time.Duration(rand.Intn(100)) * time.Millisecond) // simulate random network latency
+
+		if atomic.AddInt32(&n, 1) < 5 { // fail 5 first requests
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+
 		w.Header().Set("k1", "v1")
 		w.Write([]byte("something"))
 		atomic.AddInt32(&inFly, -1)

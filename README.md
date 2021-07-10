@@ -3,22 +3,21 @@
 [![Build Status](https://github.com/go-pkgz/repeater/workflows/build/badge.svg)](https://github.com/go-pkgz/requester/actions) [![Coverage Status](https://coveralls.io/repos/github/go-pkgz/requester/badge.svg?branch=main)](https://coveralls.io/github/go-pkgz/requester?branch=main) [![Go Reference](https://pkg.go.dev/badge/github.com/go-pkgz/requester.svg)](https://pkg.go.dev/github.com/go-pkgz/requester)
 
 
-The package provides a very thin wrapper (no external dependencies) for `http.Client`, allowing to use of layers (middlewares) on `http.RoundTripper` level. 
-The goal is to keep the way users leverage stdlib http client but add a few useful extras. 
+The package provides a very thin wrapper (no external dependencies) for `http.Client`, allowing to use of layers (middlewares) on `http.RoundTripper` level. The goal is to keep the way users leverage stdlib http client but add a few useful extras on top of the standard `http.Client`.
 
 _Pls note: this is not a replacement for http.Client but rather a companion library._
 
 ```go
-    rq := requester.New(                        // make requester
+    rq := requester.New(                        // make the requester
         http.Client{Timeout: 5*time.Second},    // set http client
         requester.MaxConcurrent(8),             // maximum number of concurrent requests
         requester.JSON,                         // set json headers
-        requester.Header("X-AUTH", "123456789"),// set auth header
-        requester.Logger(requester.StdLogger),  // enable logging
+        requester.Header("X-AUTH", "123456789"),// set some auth header
+        requester.Logger(requester.StdLogger),  // enable logging to stdout
     )
     
     req := http.NewRequest("GET", "http://example.com/api", nil) // create the usual http.Request
-    req.Header.Set("foo", "bar") // prepare headers, as usual
+    req.Header.Set("foo", "bar") // do the usual things with request, for example set some custome headers
     resp, err := rq.Do(req) // instead of client.Do call requester.Do
 ```
 

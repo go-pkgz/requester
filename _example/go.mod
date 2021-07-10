@@ -4,6 +4,7 @@ go 1.15
 
 require (
 	github.com/go-pkgz/lcw v0.8.1
+	github.com/go-pkgz/repeater v1.1.3
 	github.com/go-pkgz/requester v1.0.0
 )
 

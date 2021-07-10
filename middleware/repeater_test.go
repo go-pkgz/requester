@@ -7,9 +7,10 @@ import (
 	"sync/atomic"
 	"testing"
 
-	"github.com/go-pkgz/requester/middleware/mocks"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/go-pkgz/requester/middleware/mocks"
 )
 
 func TestRepeater_Passed(t *testing.T) {

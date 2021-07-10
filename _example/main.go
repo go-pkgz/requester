@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/go-pkgz/lcw"
+
 	"github.com/go-pkgz/requester"
 	"github.com/go-pkgz/requester/middleware"
 	"github.com/go-pkgz/requester/middleware/cache"
@@ -33,7 +34,7 @@ func main() {
 // requestWithHeaders shows how to use requester with middleware altering headers
 func requestWithHeaders(ts *httptest.Server) {
 	rq := requester.New(http.Client{Timeout: 3 * time.Second}, middleware.JSON) // make requester with JSON headers
-	// add auth header, user agent and JSON headers
+	// add auth header, user agent and basic auth
 	rq.Use(
 		middleware.Header("X-Auth", "very-secret-key"),
 		middleware.Header("User-Agent", "test-requester"),
@@ -53,7 +54,7 @@ func requestWithHeaders(ts *httptest.Server) {
 	}
 	log.Printf("status: %s", resp.Status)
 
-	// alternativley get http.Client and use directly
+	// alternatively, get http.Client and use it directly
 	client := rq.Client()
 	resp, err = client.Get(ts.URL + "/blah")
 	if err != nil {
@@ -66,7 +67,7 @@ func requestWithHeaders(ts *httptest.Server) {
 func requestWithLogging(ts *httptest.Server) {
 	rq := requester.New(http.Client{Timeout: 3 * time.Second}, middleware.JSON) // make requester with JSON headers
 	// add auth header, user agent and JSON headers
-	// logging added after X-Auth to elinamte leaking it to the logs
+	// logging added after setting X-Auth to eliminate leaking it to the logs
 	rq.Use(
 		middleware.Header("X-Auth", "very-secret-key"),
 		logger.New(logger.Std, logger.Prefix("REST"), logger.WithHeaders).Middleware, // uses std logger
@@ -87,6 +88,7 @@ func requestWithLogging(ts *httptest.Server) {
 	log.Printf("status: %s", resp.Status)
 }
 
+// requestWithCache example of using request cache
 func requestWithCache(ts *httptest.Server) {
 
 	cacheService, err := lcw.NewLruCache(lcw.MaxKeys(100)) // make LRU loading cache
@@ -108,13 +110,13 @@ func requestWithCache(ts *httptest.Server) {
 		panic(err)
 	}
 
-	resp, err := rq.Do(req)
+	resp, err := rq.Do(req) // the first call hits the remote endpoint and cache response
 	if err != nil {
 		panic(err)
 	}
 	log.Printf("status1: %s", resp.Status)
 
-	// make another call for cached resurce, will be fast
+	// make another call for cached resource, will be fast as result cached
 	req2, err := http.NewRequest("GET", ts.URL+"/blah", nil)
 	if err != nil {
 		panic(err)
@@ -126,9 +128,10 @@ func requestWithCache(ts *httptest.Server) {
 	log.Printf("status2: %s", resp.Status)
 }
 
+// requestWithCustom example of a custom, user provided middleware
 func requestWithCustom(ts *httptest.Server) {
 
-	// custome middlewre removes header foo
+	// custom middleware, removes header foo
 	clearHeaders := func(next http.RoundTripper) http.RoundTripper {
 		fn := func(r *http.Request) (*http.Response, error) {
 			r.Header.Del("foo")
@@ -137,10 +140,10 @@ func requestWithCustom(ts *httptest.Server) {
 		return middleware.RoundTripperFunc(fn)
 	}
 
-	// make requester with logger
+	// make requester with clearHeaders
 	rq := requester.New(http.Client{Timeout: 3 * time.Second},
 		logger.New(logger.Std, logger.Prefix("REST CUSTOM"), logger.WithHeaders).Middleware,
-		middleware.JSON,
+		clearHeaders,
 	)
 
 	// create http.Request
@@ -159,6 +162,7 @@ func requestWithCustom(ts *httptest.Server) {
 
 var inFly int32
 
+// requestWithLimitConcurrency example of concurrency limiter
 func requestWithLimitConcurrency(ts *httptest.Server) {
 	// make requester with logger and max concurrency 4
 	rq := requester.New(http.Client{Timeout: 3 * time.Second},
@@ -168,6 +172,7 @@ func requestWithLimitConcurrency(ts *httptest.Server) {
 
 	client := rq.Client()
 
+	// a test checking if concurrent requests limited to 4
 	var wg sync.WaitGroup
 	wg.Add(32)
 	for i := 0; i < 32; i++ {

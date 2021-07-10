@@ -28,7 +28,9 @@ _Pls note: this is not a replacement for http.Client but rather a companion libr
 `go get -u github.com/go-pkgz/requester`
 
 
-## `Requester` middlewares
+## `Requester` middlewares 
+
+## Overview
 
 - `Header` - appends user-defined headers to all requests. 
 - `JSON` - sets headers `"Content-Type": "application/json"` and `"Accept": "application/json"`
@@ -42,6 +44,8 @@ _Pls note: this is not a replacement for http.Client but rather a companion libr
 Users can add any custom middleware. All it needs is a handler `RoundTripperHandler func(http.RoundTripper) http.RoundTripper`. 
 Convenient functional adapter `middleware.RoundTripperFunc` provided.
  
+See examples of the usage in [_example](https://github.com/go-pkgz/requester/tree/master/_example)
+
 ### Logging 
 
 Logger should implement `Logger` interface with a single method `Logf(format string, args ...interface{})`. 
@@ -144,7 +148,7 @@ resp, err := rqLimited.Do(some_http_req)
 
 ## Getting http.Client with all middlewares
 
-For convenience `requester.Client()` returns `*http.Client` with all middlewares injected in.   
+For convenience `requester.Client()` returns `*http.Client` with all middlewares injected in. From this point user can call `Do` of this client and it will invoke the request with all the middlewares,  
 
 ## Helpers and adapters
 

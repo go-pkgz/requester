@@ -40,19 +40,17 @@ func (r *Requester) With(middlewares ...middleware.RoundTripperHandler) *Request
 
 // Client returns http.Client with all middlewares injected
 func (r *Requester) Client() *http.Client {
-	r.client.Transport = http.DefaultTransport
-	for _, handler := range r.middlewares {
-		r.client.Transport = handler(r.client.Transport)
+	cl := r.client
+	if cl.Transport == nil {
+		cl.Transport = http.DefaultTransport
 	}
-	return &r.client
+	for _, handler := range r.middlewares {
+		cl.Transport = handler(cl.Transport)
+	}
+	return &cl
 }
 
 // Do runs http request with optional middleware handlers wrapping the request
 func (r *Requester) Do(req *http.Request) (*http.Response, error) {
-
-	r.client.Transport = http.DefaultTransport
-	for _, handler := range r.middlewares {
-		r.client.Transport = handler(r.client.Transport)
-	}
-	return r.client.Do(req)
+	return r.Client().Do(req)
 }

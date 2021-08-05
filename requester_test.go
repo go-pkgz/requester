@@ -7,6 +7,7 @@ import (
 	"math/rand"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -193,6 +194,47 @@ func TestRequester_CustomMiddleware(t *testing.T) {
 	resp, err := rqMasked.Do(req)
 	require.NoError(t, err)
 	assert.Equal(t, 200, resp.StatusCode)
+}
+
+func TestRequester_DoNotReplaceTransport(t *testing.T) {
+	remoteTS := httptest.NewServer(http.HandlerFunc(func(_ http.ResponseWriter, _ *http.Request) {
+		t.Fatal("remote should not be reached due to redirect")
+	}))
+	defer remoteTS.Close()
+
+	// indicates that the request was caught by the test server,
+	// to which we are redirecting the request
+	caughtReq := int32(0)
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		atomic.AddInt32(&caughtReq, 1)
+		assert.Equal(t, "value", r.Header.Get("blah"))
+		_, err := w.Write([]byte("something"))
+		require.NoError(t, err)
+	}))
+	defer ts.Close()
+	tsURL, err := url.Parse(ts.URL)
+	require.NoError(t, err)
+
+	redirectingRoundTripper := middleware.RoundTripperFunc(func(r *http.Request) (*http.Response, error) {
+		r.URL = tsURL
+		return http.DefaultTransport.RoundTrip(r)
+	})
+
+	rq := New(http.Client{Transport: redirectingRoundTripper}, middleware.Header("blah", "value"))
+
+	req, err := http.NewRequest("GET", remoteTS.URL, nil)
+	require.NoError(t, err)
+	resp, err := rq.Do(req)
+	require.NoError(t, err)
+	assert.Equal(t, 200, resp.StatusCode)
+	assert.Greater(t, atomic.LoadInt32(&caughtReq), int32(0))
+
+	req, err = http.NewRequest("GET", remoteTS.URL, nil)
+	require.NoError(t, err)
+	resp, err = rq.Client().Do(req)
+	require.NoError(t, err)
+	assert.Equal(t, 200, resp.StatusCode)
+	assert.Greater(t, atomic.LoadInt32(&caughtReq), int32(1))
 }
 
 func ExampleNew() {

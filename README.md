@@ -68,13 +68,15 @@ In this case, consider turning logging off or provide your own logger suppressin
 ### MaxConcurrent
 
 MaxConcurrent middleware can be used to limit the concurrency of a given requester and limit overall concurrency for multiple
-requesters. For the first case, `MaxConcurrent(N)` should be created in the requester chain of middlewares, for example, `rq := requester.New(http.Client{Timeout: 3 * time.Second}, middleware.MaxConcurrent(8))`. To make it global, `MaxConcurrent` should be created once, outside of the chain and passed into each requester, i.e.
+requesters. For the first case, `MaxConcurrent(N)` should be created in the requester chain of middlewares, for example, `rq := requester.New(http.Client{Timeout: 3 * time.Second}, middleware.MaxConcurrent(8))`. To make it global, `MaxConcurrent` should be created once, outside the chain and passed into each requester, i.e.
 
 ```go
 mc := middleware.MaxConcurrent(16)
 rq1 := requester.New(http.Client{Timeout: 3 * time.Second}, mc)
 rq2 := requester.New(http.Client{Timeout: 1 * time.Second}, middleware.JSON, mc)
 ```
+
+If request was limited, it will wait till the limit is released.
 
 ### Cache
 
@@ -85,7 +87,7 @@ be used directly, and in order to adopt other caches see provided `LoadingCacheF
 #### caching key and allowed requests
 
 By default, only `GET` calls are cached. This can be changed with `Methods(methods ...string)` option.
-The default key composed from the full URL.
+The default key composed of the full URL.
 
 Several options are defining what part of the request will be used for the key:
 
@@ -147,7 +149,7 @@ resp, err := rqLimited.Do(some_http_req)
 
 ## Getting http.Client with all middlewares
 
-For convenience `requester.Client()` returns `*http.Client` with all middlewares injected in. From this point user can call `Do` of this client and it will invoke the request with all the middlewares,  
+For convenience `requester.Client()` returns `*http.Client` with all middlewares injected in. From this point user can call `Do` of this client, and it will invoke the request with all the middlewares.
 
 ## Helpers and adapters
 

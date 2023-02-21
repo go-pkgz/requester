@@ -10,11 +10,6 @@ import (
 //go:generate moq -out mocks/logger.go -pkg mocks -skip-ensure -fmt goimports logger Service:LoggerSvc
 //go:generate moq -out mocks/cache.go -pkg mocks -skip-ensure -fmt goimports cache Service:CacheSvc
 
-// // RoundTripperHandler is a type for middleware handler
-// type RoundTripperHandler interface {
-// 	Middleware(http.RoundTripper) http.RoundTripper
-// }
-
 // RoundTripperHandler is a type for middleware handler
 type RoundTripperHandler func(http.RoundTripper) http.RoundTripper
 

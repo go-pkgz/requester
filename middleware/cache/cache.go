@@ -7,7 +7,6 @@ import (
 	"crypto/sha256"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net/http"
 	"net/http/httputil"
 	"sort"
@@ -101,12 +100,12 @@ func (m *Middleware) extractCacheKey(req *http.Request) (key string, err error) 
 		if req.Body == nil {
 			return "", nil
 		}
-		reqBody, e := ioutil.ReadAll(io.LimitReader(req.Body, maxBodySize))
+		reqBody, e := io.ReadAll(io.LimitReader(req.Body, maxBodySize))
 		if e != nil {
 			return "", e
 		}
 		_ = req.Body.Close()
-		req.Body = ioutil.NopCloser(bytes.NewReader(reqBody))
+		req.Body = io.NopCloser(bytes.NewReader(reqBody))
 		return string(reqBody), nil
 	}
 

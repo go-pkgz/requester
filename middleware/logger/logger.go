@@ -5,7 +5,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"log"
 	"net/http"
 	"strings"
@@ -42,7 +42,7 @@ func (m Middleware) Middleware(next http.RoundTripper) http.RoundTripper {
 		}
 		logParts = append(logParts, req.Method, req.URL.String()+",")
 
-		headerLog := []byte{} //nolint
+		headerLog := []byte{} // nolint
 		if m.headers {
 			if headerLog, err = json.Marshal(req.Header); err != nil {
 				headerLog = []byte(fmt.Sprintf("headers: %v", req.Header))
@@ -52,10 +52,10 @@ func (m Middleware) Middleware(next http.RoundTripper) http.RoundTripper {
 
 		bodyLog := ""
 		if m.body && req.Body != nil {
-			body, e := ioutil.ReadAll(req.Body)
+			body, e := io.ReadAll(req.Body)
 			if e == nil {
 				_ = req.Body.Close()
-				req.Body = ioutil.NopCloser(bytes.NewReader(body))
+				req.Body = io.NopCloser(bytes.NewReader(body))
 				bodyLog = " body: " + string(body)
 				if len(bodyLog) > 1024 {
 					bodyLog = bodyLog[:1024] + "..."

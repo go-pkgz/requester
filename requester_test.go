@@ -2,7 +2,7 @@ package requester
 
 import (
 	"bytes"
-	"io/ioutil"
+	"io"
 	"log"
 	"math/rand"
 	"net/http"
@@ -12,10 +12,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/go-pkgz/requester/middleware"
-	"github.com/go-pkgz/requester/middleware/logger"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/go-pkgz/requester/middleware"
+	"github.com/go-pkgz/requester/middleware/logger"
 )
 
 func TestRequester_DoSimpleMiddleware(t *testing.T) {
@@ -38,13 +39,13 @@ func TestRequester_DoSimpleMiddleware(t *testing.T) {
 
 	rq := New(http.Client{Timeout: 1 * time.Second}, mw)
 
-	req, err := http.NewRequest("GET", ts.URL, nil)
+	req, err := http.NewRequest("GET", ts.URL, http.NoBody)
 	require.NoError(t, err)
 
 	resp, err := rq.Do(req)
 	require.NoError(t, err)
 	assert.Equal(t, 200, resp.StatusCode)
-	body, err := ioutil.ReadAll(resp.Body)
+	body, err := io.ReadAll(resp.Body)
 	assert.NoError(t, err)
 	assert.Equal(t, "something", string(body))
 }
@@ -78,13 +79,13 @@ func TestRequester_DoMiddlewareChain(t *testing.T) {
 	rq.Use(mw1)
 	rq.Use(mw2)
 
-	req, err := http.NewRequest("GET", ts.URL, nil)
+	req, err := http.NewRequest("GET", ts.URL, http.NoBody)
 	require.NoError(t, err)
 
 	resp, err := rq.Do(req)
 	require.NoError(t, err)
 	assert.Equal(t, 200, resp.StatusCode)
-	body, err := ioutil.ReadAll(resp.Body)
+	body, err := io.ReadAll(resp.Body)
 	assert.NoError(t, err)
 	assert.Equal(t, "something", string(body))
 }
@@ -123,14 +124,14 @@ func TestRequester_With(t *testing.T) {
 	defer ts.Close()
 
 	rq := New(http.Client{Timeout: 1 * time.Second}, mw1)
-	req, err := http.NewRequest("GET", ts.URL, nil)
+	req, err := http.NewRequest("GET", ts.URL, http.NoBody)
 	require.NoError(t, err)
 	resp, err := rq.Do(req)
 	require.NoError(t, err)
 	assert.Equal(t, 200, resp.StatusCode)
 
 	rq2 := rq.With(mw2)
-	req, err = http.NewRequest("GET", ts.URL, nil)
+	req, err = http.NewRequest("GET", ts.URL, http.NoBody)
 	require.NoError(t, err)
 	resp, err = rq2.Do(req)
 	require.NoError(t, err)
@@ -158,7 +159,7 @@ func TestRequester_Client(t *testing.T) {
 	resp, err := rq.Client().Get(ts.URL)
 	require.NoError(t, err)
 	assert.Equal(t, 200, resp.StatusCode)
-	body, err := ioutil.ReadAll(resp.Body)
+	body, err := io.ReadAll(resp.Body)
 	assert.NoError(t, err)
 	assert.Equal(t, "something", string(body))
 }
@@ -177,12 +178,12 @@ func TestRequester_CustomMiddleware(t *testing.T) {
 		assert.Equal(t, "application/json", r.Header.Get("Content-Type"))
 		assert.Equal(t, "blah2", r.Header.Get("do-not-deleteme"))
 		assert.Equal(t, "", r.Header.Get("deleteme"))
-		body, err := ioutil.ReadAll(r.Body)
+		body, err := io.ReadAll(r.Body)
 		assert.NoError(t, err)
 		assert.Contains(t, string(body), "request body")
 		_, err = w.Write([]byte("something"))
 		require.NoError(t, err)
-		time.Sleep(time.Duration(rand.Intn(10)) * time.Millisecond)
+		time.Sleep(time.Duration(rand.Intn(10)) * time.Millisecond) // nolint
 	}))
 	defer ts.Close()
 
@@ -222,14 +223,14 @@ func TestRequester_DoNotReplaceTransport(t *testing.T) {
 
 	rq := New(http.Client{Transport: redirectingRoundTripper}, middleware.Header("blah", "value"))
 
-	req, err := http.NewRequest("GET", remoteTS.URL, nil)
+	req, err := http.NewRequest("GET", remoteTS.URL, http.NoBody)
 	require.NoError(t, err)
 	resp, err := rq.Do(req)
 	require.NoError(t, err)
 	assert.Equal(t, 200, resp.StatusCode)
 	assert.Greater(t, atomic.LoadInt32(&caughtReq), int32(0))
 
-	req, err = http.NewRequest("GET", remoteTS.URL, nil)
+	req, err = http.NewRequest("GET", remoteTS.URL, http.NoBody)
 	require.NoError(t, err)
 	resp, err = rq.Client().Do(req)
 	require.NoError(t, err)
@@ -261,7 +262,7 @@ func ExampleRequester_Do() {
 	)
 
 	// create http.Request
-	req, err := http.NewRequest("GET", "http://example.com", nil)
+	req, err := http.NewRequest("GET", "http://example.com", http.NoBody)
 	if err != nil {
 		panic(err)
 	}
@@ -298,7 +299,7 @@ func ExampleRequester_With() {
 	rq2 := rq1.With(middleware.BasicAuth("user", "password"), middleware.MaxConcurrent(4))
 
 	// create http.Request
-	req, err := http.NewRequest("GET", "http://example.com", nil)
+	req, err := http.NewRequest("GET", "http://example.com", http.NoBody)
 	if err != nil {
 		panic(err)
 	}

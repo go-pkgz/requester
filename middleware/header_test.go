@@ -4,9 +4,10 @@ import (
 	"net/http"
 	"testing"
 
-	"github.com/go-pkgz/requester/middleware/mocks"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/go-pkgz/requester/middleware/mocks"
 )
 
 func TestHeader(t *testing.T) {
@@ -16,7 +17,7 @@ func TestHeader(t *testing.T) {
 		return resp, nil
 	}}
 
-	req, err := http.NewRequest("GET", "http://example.com/blah", nil)
+	req, err := http.NewRequest("GET", "http://example.com/blah", http.NoBody)
 	require.NoError(t, err)
 
 	h := Header("k1", "v1")
@@ -35,7 +36,7 @@ func TestJSON(t *testing.T) {
 		return resp, nil
 	}}
 
-	req, err := http.NewRequest("GET", "http://example.com/blah", nil)
+	req, err := http.NewRequest("GET", "http://example.com/blah", http.NoBody)
 	require.NoError(t, err)
 
 	resp, err := JSON(rmock).RoundTrip(req)
@@ -51,7 +52,7 @@ func TestBasicAuth(t *testing.T) {
 		return resp, nil
 	}}
 
-	req, err := http.NewRequest("GET", "http://example.com/blah", nil)
+	req, err := http.NewRequest("GET", "http://example.com/blah", http.NoBody)
 	require.NoError(t, err)
 
 	resp, err := BasicAuth("user", "passwd")(rmock).RoundTrip(req)

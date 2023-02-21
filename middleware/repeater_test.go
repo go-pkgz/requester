@@ -36,7 +36,7 @@ func TestRepeater_Passed(t *testing.T) {
 
 	h := Repeater(repeater)
 
-	req, err := http.NewRequest("GET", "http://example.com/blah", nil)
+	req, err := http.NewRequest("GET", "http://example.com/blah", http.NoBody)
 	require.NoError(t, err)
 
 	resp, err := h(rmock).RoundTrip(req)
@@ -64,7 +64,7 @@ func TestRepeater_Failed(t *testing.T) {
 
 	h := Repeater(repeater)
 
-	req, err := http.NewRequest("GET", "http://example.com/blah", nil)
+	req, err := http.NewRequest("GET", "http://example.com/blah", http.NoBody)
 	require.NoError(t, err)
 
 	_, err = h(rmock).RoundTrip(req)
@@ -92,7 +92,7 @@ func TestRepeater_FailedStatus(t *testing.T) {
 	{
 		h := Repeater(repeater, 300, 400, 401)
 
-		req, err := http.NewRequest("GET", "http://example.com/blah", nil)
+		req, err := http.NewRequest("GET", "http://example.com/blah", http.NoBody)
 		require.NoError(t, err)
 
 		_, err = h(rmock).RoundTrip(req)
@@ -104,7 +104,7 @@ func TestRepeater_FailedStatus(t *testing.T) {
 	{
 		h := Repeater(repeater, 300, 401)
 
-		req, err := http.NewRequest("GET", "http://example.com/blah", nil)
+		req, err := http.NewRequest("GET", "http://example.com/blah", http.NoBody)
 		require.NoError(t, err)
 
 		resp, err := h(rmock).RoundTrip(req)

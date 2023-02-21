@@ -3,15 +3,15 @@ package cache
 import (
 	"bytes"
 	"io"
-	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
 	"strconv"
 	"testing"
 
-	"github.com/go-pkgz/requester/middleware/mocks"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/go-pkgz/requester/middleware/mocks"
 )
 
 func Test_extractCacheKey(t *testing.T) {
@@ -97,7 +97,7 @@ func Test_extractCacheKey(t *testing.T) {
 		},
 	}
 
-	//nolint scopelint
+	// nolint scopelint
 	for i, tt := range tbl {
 		t.Run(strconv.Itoa(i), func(t *testing.T) {
 			c := New(nil, tt.opts...)
@@ -131,28 +131,28 @@ func TestMiddleware_Handle(t *testing.T) {
 	}))
 
 	client := http.Client{Transport: c.Middleware(http.DefaultTransport)}
-	req, err := http.NewRequest("GET", ts.URL+"?k=v", nil)
+	req, err := http.NewRequest("GET", ts.URL+"?k=v", http.NoBody)
 	require.NoError(t, err)
 
 	resp, err := client.Do(req)
 	require.NoError(t, err)
 	assert.Equal(t, 200, resp.StatusCode)
 
-	v, err := ioutil.ReadAll(resp.Body)
+	v, err := io.ReadAll(resp.Body)
 	require.NoError(t, err)
 	assert.Equal(t, "something", string(v))
 	assert.Equal(t, "v1", resp.Header.Get("k1"))
 	assert.Equal(t, 1, len(cacheMock.GetCalls()))
 	assert.Contains(t, cacheMock.GetCalls()[0].Key, "?k=v##GET####")
 
-	req, err = http.NewRequest("GET", ts.URL+"?k=v", nil)
+	req, err = http.NewRequest("GET", ts.URL+"?k=v", http.NoBody)
 	require.NoError(t, err)
 
 	resp, err = client.Do(req)
 	require.NoError(t, err)
 	assert.Equal(t, 200, resp.StatusCode)
 
-	v, err = ioutil.ReadAll(resp.Body)
+	v, err = io.ReadAll(resp.Body)
 	require.NoError(t, err)
 	assert.Equal(t, "something", string(v))
 	assert.Equal(t, 2, len(cacheMock.GetCalls()))
@@ -173,7 +173,7 @@ func TestMiddleware_HandleMethodDisabled(t *testing.T) {
 	}))
 
 	client := http.Client{Transport: c.Middleware(http.DefaultTransport)}
-	req, err := http.NewRequest("GET", ts.URL+"?k=v", nil)
+	req, err := http.NewRequest("GET", ts.URL+"?k=v", http.NoBody)
 	require.NoError(t, err)
 
 	resp, err := client.Do(req)
@@ -181,7 +181,7 @@ func TestMiddleware_HandleMethodDisabled(t *testing.T) {
 	assert.Equal(t, 200, resp.StatusCode)
 	assert.Equal(t, 0, len(cacheMock.GetCalls()))
 
-	req, err = http.NewRequest("PUT", ts.URL+"?k=v", nil)
+	req, err = http.NewRequest("PUT", ts.URL+"?k=v", http.NoBody)
 	require.NoError(t, err)
 	resp, err = client.Do(req)
 	require.NoError(t, err)

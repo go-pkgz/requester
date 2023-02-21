@@ -8,9 +8,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/go-pkgz/requester/middleware/mocks"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/go-pkgz/requester/middleware/mocks"
 )
 
 func TestMaxConcurrentHandler(t *testing.T) {
@@ -24,11 +25,11 @@ func TestMaxConcurrentHandler(t *testing.T) {
 			atomic.AddInt32(&concurrentCount, -1)
 		}()
 		resp := &http.Response{StatusCode: 201}
-		time.Sleep(time.Millisecond * time.Duration(rand.Intn(100)))
+		time.Sleep(time.Millisecond * time.Duration(rand.Intn(100))) // nolint
 		return resp, nil
 	}}
 
-	req, err := http.NewRequest("GET", "http://example.com/blah", nil)
+	req, err := http.NewRequest("GET", "http://example.com/blah", http.NoBody)
 	require.NoError(t, err)
 
 	h := MaxConcurrent(8)

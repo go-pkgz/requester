@@ -8,9 +8,10 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/go-pkgz/requester/middleware/mocks"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/go-pkgz/requester/middleware/mocks"
 )
 
 func TestMiddleware_Handle(t *testing.T) {
@@ -29,7 +30,7 @@ func TestMiddleware_Handle(t *testing.T) {
 	}))
 
 	client := http.Client{Transport: l.Middleware(http.DefaultTransport)}
-	req, err := http.NewRequest("GET", ts.URL+"?k=v", nil)
+	req, err := http.NewRequest("GET", ts.URL+"?k=v", http.NoBody)
 	require.NoError(t, err)
 
 	resp, err := client.Do(req)

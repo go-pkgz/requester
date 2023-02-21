@@ -4,9 +4,10 @@ import (
 	"net/http"
 	"testing"
 
-	"github.com/go-pkgz/requester/middleware/mocks"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/go-pkgz/requester/middleware/mocks"
 )
 
 func TestCircuitBreaker(t *testing.T) {
@@ -24,7 +25,7 @@ func TestCircuitBreaker(t *testing.T) {
 		},
 	}
 
-	req, err := http.NewRequest("GET", "http://example.com/blah", nil)
+	req, err := http.NewRequest("GET", "http://example.com/blah", http.NoBody)
 	require.NoError(t, err)
 
 	h := CircuitBreaker(cbMock)

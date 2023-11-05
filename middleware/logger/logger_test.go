@@ -18,7 +18,7 @@ func TestMiddleware_Handle(t *testing.T) {
 	outBuf := bytes.NewBuffer(nil)
 	loggerMock := &mocks.LoggerSvc{
 		LogfFunc: func(format string, args ...interface{}) {
-			_, _ = outBuf.WriteString(fmt.Sprintf(format, args...))
+			_, _ = fmt.Fprintf(outBuf, format, args...)
 		},
 	}
 	l := New(loggerMock)
@@ -48,7 +48,7 @@ func TestMiddleware_HandleWithOptions(t *testing.T) {
 	outBuf := bytes.NewBuffer(nil)
 	loggerMock := &mocks.LoggerSvc{
 		LogfFunc: func(format string, args ...interface{}) {
-			_, _ = outBuf.WriteString(fmt.Sprintf(format, args...))
+			_, _ = fmt.Fprintf(outBuf, format, args...)
 		},
 	}
 	l := New(loggerMock, WithBody, WithHeaders, Prefix("HIT"))

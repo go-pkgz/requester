@@ -9,19 +9,19 @@ import (
 
 // CacheSvc is a mock implementation of cache.Service.
 //
-// 	func TestSomethingThatUsesService(t *testing.T) {
+//	func TestSomethingThatUsesService(t *testing.T) {
 //
-// 		// make and configure a mocked cache.Service
-// 		mockedService := &CacheSvc{
-// 			GetFunc: func(key string, fn func() (interface{}, error)) (interface{}, error) {
-// 				panic("mock out the Get method")
-// 			},
-// 		}
+//		// make and configure a mocked cache.Service
+//		mockedService := &CacheSvc{
+//			GetFunc: func(key string, fn func() (interface{}, error)) (interface{}, error) {
+//				panic("mock out the Get method")
+//			},
+//		}
 //
-// 		// use mockedService in code that requires cache.Service
-// 		// and then make assertions.
+//		// use mockedService in code that requires cache.Service
+//		// and then make assertions.
 //
-// 	}
+//	}
 type CacheSvc struct {
 	// GetFunc mocks the Get method.
 	GetFunc func(key string, fn func() (interface{}, error)) (interface{}, error)
@@ -59,7 +59,8 @@ func (mock *CacheSvc) Get(key string, fn func() (interface{}, error)) (interface
 
 // GetCalls gets all the calls that were made to Get.
 // Check the length with:
-//     len(mockedService.GetCalls())
+//
+//	len(mockedService.GetCalls())
 func (mock *CacheSvc) GetCalls() []struct {
 	Key string
 	Fn  func() (interface{}, error)
@@ -72,4 +73,18 @@ func (mock *CacheSvc) GetCalls() []struct {
 	calls = mock.calls.Get
 	mock.lockGet.RUnlock()
 	return calls
+}
+
+// ResetGetCalls reset all the calls that were made to Get.
+func (mock *CacheSvc) ResetGetCalls() {
+	mock.lockGet.Lock()
+	mock.calls.Get = nil
+	mock.lockGet.Unlock()
+}
+
+// ResetCalls reset all the calls that were made to all mocked methods.
+func (mock *CacheSvc) ResetCalls() {
+	mock.lockGet.Lock()
+	mock.calls.Get = nil
+	mock.lockGet.Unlock()
 }

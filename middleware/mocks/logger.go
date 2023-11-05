@@ -9,19 +9,19 @@ import (
 
 // LoggerSvc is a mock implementation of logger.Service.
 //
-// 	func TestSomethingThatUsesService(t *testing.T) {
+//	func TestSomethingThatUsesService(t *testing.T) {
 //
-// 		// make and configure a mocked logger.Service
-// 		mockedService := &LoggerSvc{
-// 			LogfFunc: func(format string, args ...interface{})  {
-// 				panic("mock out the Logf method")
-// 			},
-// 		}
+//		// make and configure a mocked logger.Service
+//		mockedService := &LoggerSvc{
+//			LogfFunc: func(format string, args ...interface{})  {
+//				panic("mock out the Logf method")
+//			},
+//		}
 //
-// 		// use mockedService in code that requires logger.Service
-// 		// and then make assertions.
+//		// use mockedService in code that requires logger.Service
+//		// and then make assertions.
 //
-// 	}
+//	}
 type LoggerSvc struct {
 	// LogfFunc mocks the Logf method.
 	LogfFunc func(format string, args ...interface{})
@@ -59,7 +59,8 @@ func (mock *LoggerSvc) Logf(format string, args ...interface{}) {
 
 // LogfCalls gets all the calls that were made to Logf.
 // Check the length with:
-//     len(mockedService.LogfCalls())
+//
+//	len(mockedService.LogfCalls())
 func (mock *LoggerSvc) LogfCalls() []struct {
 	Format string
 	Args   []interface{}
@@ -72,4 +73,18 @@ func (mock *LoggerSvc) LogfCalls() []struct {
 	calls = mock.calls.Logf
 	mock.lockLogf.RUnlock()
 	return calls
+}
+
+// ResetLogfCalls reset all the calls that were made to Logf.
+func (mock *LoggerSvc) ResetLogfCalls() {
+	mock.lockLogf.Lock()
+	mock.calls.Logf = nil
+	mock.lockLogf.Unlock()
+}
+
+// ResetCalls reset all the calls that were made to all mocked methods.
+func (mock *LoggerSvc) ResetCalls() {
+	mock.lockLogf.Lock()
+	mock.calls.Logf = nil
+	mock.lockLogf.Unlock()
 }

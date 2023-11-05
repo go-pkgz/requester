@@ -114,6 +114,9 @@ By default, the repeater will retry on any error and any status code >=400.
 However, user can pass `failOnCodes` to explicitly define what status code should be treated as errors and retry only on those.
 For example: `Repeater(repeaterSvc, 500, 400)` repeats requests on 500 and 400 statuses only.
 
+For a special case if user want to retry only on the underlying transport errors (network, timeouts, etc) and not on any status codes,
+`Repeater(repeaterSvc, 0)` can be used.
+
 ### User-Defined Middlewares
 
 Users can add any additional handlers (middleware) to the chain. Each middleware provides `middleware.RoundTripperHandler` and

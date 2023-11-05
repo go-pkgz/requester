@@ -9,19 +9,19 @@ import (
 
 // CircuitBreakerSvcMock is a mock implementation of middleware.CircuitBreakerSvc.
 //
-// 	func TestSomethingThatUsesCircuitBreakerSvc(t *testing.T) {
+//	func TestSomethingThatUsesCircuitBreakerSvc(t *testing.T) {
 //
-// 		// make and configure a mocked middleware.CircuitBreakerSvc
-// 		mockedCircuitBreakerSvc := &CircuitBreakerSvcMock{
-// 			ExecuteFunc: func(req func() (interface{}, error)) (interface{}, error) {
-// 				panic("mock out the Execute method")
-// 			},
-// 		}
+//		// make and configure a mocked middleware.CircuitBreakerSvc
+//		mockedCircuitBreakerSvc := &CircuitBreakerSvcMock{
+//			ExecuteFunc: func(req func() (interface{}, error)) (interface{}, error) {
+//				panic("mock out the Execute method")
+//			},
+//		}
 //
-// 		// use mockedCircuitBreakerSvc in code that requires middleware.CircuitBreakerSvc
-// 		// and then make assertions.
+//		// use mockedCircuitBreakerSvc in code that requires middleware.CircuitBreakerSvc
+//		// and then make assertions.
 //
-// 	}
+//	}
 type CircuitBreakerSvcMock struct {
 	// ExecuteFunc mocks the Execute method.
 	ExecuteFunc func(req func() (interface{}, error)) (interface{}, error)
@@ -55,7 +55,8 @@ func (mock *CircuitBreakerSvcMock) Execute(req func() (interface{}, error)) (int
 
 // ExecuteCalls gets all the calls that were made to Execute.
 // Check the length with:
-//     len(mockedCircuitBreakerSvc.ExecuteCalls())
+//
+//	len(mockedCircuitBreakerSvc.ExecuteCalls())
 func (mock *CircuitBreakerSvcMock) ExecuteCalls() []struct {
 	Req func() (interface{}, error)
 } {
@@ -66,4 +67,18 @@ func (mock *CircuitBreakerSvcMock) ExecuteCalls() []struct {
 	calls = mock.calls.Execute
 	mock.lockExecute.RUnlock()
 	return calls
+}
+
+// ResetExecuteCalls reset all the calls that were made to Execute.
+func (mock *CircuitBreakerSvcMock) ResetExecuteCalls() {
+	mock.lockExecute.Lock()
+	mock.calls.Execute = nil
+	mock.lockExecute.Unlock()
+}
+
+// ResetCalls reset all the calls that were made to all mocked methods.
+func (mock *CircuitBreakerSvcMock) ResetCalls() {
+	mock.lockExecute.Lock()
+	mock.calls.Execute = nil
+	mock.lockExecute.Unlock()
 }

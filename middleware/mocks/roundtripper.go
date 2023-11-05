@@ -21,3 +21,8 @@ func (r *RoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
 func (r *RoundTripper) Calls() int {
 	return int(atomic.LoadInt32(&r.calls))
 }
+
+// ResetCalls resets calls counter
+func (r *RoundTripper) ResetCalls() {
+	atomic.StoreInt32(&r.calls, 0)
+}

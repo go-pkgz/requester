@@ -89,19 +89,30 @@ func TestRepeater_FailedStatus(t *testing.T) {
 		return err
 	}}
 
-	{
-		h := Repeater(repeater, 300, 400, 401)
-
+	t.Run("no codes", func(t *testing.T) {
+		rmock.ResetCalls()
+		h := Repeater(repeater)
 		req, err := http.NewRequest("GET", "http://example.com/blah", http.NoBody)
 		require.NoError(t, err)
 
 		_, err = h(rmock).RoundTrip(req)
 		require.EqualError(t, err, "repeater: 400 Bad Request")
-	}
+		assert.Equal(t, 5, rmock.Calls())
+	})
 
-	assert.Equal(t, 5, rmock.Calls())
+	t.Run("with codes", func(t *testing.T) {
+		rmock.ResetCalls()
+		h := Repeater(repeater, 300, 400, 401)
+		req, err := http.NewRequest("GET", "http://example.com/blah", http.NoBody)
+		require.NoError(t, err)
 
-	{
+		_, err = h(rmock).RoundTrip(req)
+		require.EqualError(t, err, "repeater: 400 Bad Request")
+		assert.Equal(t, 5, rmock.Calls())
+	})
+
+	t.Run("no codes, no match", func(t *testing.T) {
+		rmock.ResetCalls()
 		h := Repeater(repeater, 300, 401)
 
 		req, err := http.NewRequest("GET", "http://example.com/blah", http.NoBody)
@@ -110,6 +121,7 @@ func TestRepeater_FailedStatus(t *testing.T) {
 		resp, err := h(rmock).RoundTrip(req)
 		require.NoError(t, err)
 		assert.Equal(t, 400, resp.StatusCode)
-	}
+		assert.Equal(t, 1, rmock.Calls())
+	})
 
 }

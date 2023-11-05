@@ -10,19 +10,19 @@ import (
 
 // RepeaterSvcMock is a mock implementation of middleware.RepeaterSvc.
 //
-// 	func TestSomethingThatUsesRepeaterSvc(t *testing.T) {
+//	func TestSomethingThatUsesRepeaterSvc(t *testing.T) {
 //
-// 		// make and configure a mocked middleware.RepeaterSvc
-// 		mockedRepeaterSvc := &RepeaterSvcMock{
-// 			DoFunc: func(ctx context.Context, fun func() error, errs ...error) error {
-// 				panic("mock out the Do method")
-// 			},
-// 		}
+//		// make and configure a mocked middleware.RepeaterSvc
+//		mockedRepeaterSvc := &RepeaterSvcMock{
+//			DoFunc: func(ctx context.Context, fun func() error, errs ...error) error {
+//				panic("mock out the Do method")
+//			},
+//		}
 //
-// 		// use mockedRepeaterSvc in code that requires middleware.RepeaterSvc
-// 		// and then make assertions.
+//		// use mockedRepeaterSvc in code that requires middleware.RepeaterSvc
+//		// and then make assertions.
 //
-// 	}
+//	}
 type RepeaterSvcMock struct {
 	// DoFunc mocks the Do method.
 	DoFunc func(ctx context.Context, fun func() error, errs ...error) error
@@ -64,7 +64,8 @@ func (mock *RepeaterSvcMock) Do(ctx context.Context, fun func() error, errs ...e
 
 // DoCalls gets all the calls that were made to Do.
 // Check the length with:
-//     len(mockedRepeaterSvc.DoCalls())
+//
+//	len(mockedRepeaterSvc.DoCalls())
 func (mock *RepeaterSvcMock) DoCalls() []struct {
 	Ctx  context.Context
 	Fun  func() error
@@ -79,4 +80,18 @@ func (mock *RepeaterSvcMock) DoCalls() []struct {
 	calls = mock.calls.Do
 	mock.lockDo.RUnlock()
 	return calls
+}
+
+// ResetDoCalls reset all the calls that were made to Do.
+func (mock *RepeaterSvcMock) ResetDoCalls() {
+	mock.lockDo.Lock()
+	mock.calls.Do = nil
+	mock.lockDo.Unlock()
+}
+
+// ResetCalls reset all the calls that were made to all mocked methods.
+func (mock *RepeaterSvcMock) ResetCalls() {
+	mock.lockDo.Lock()
+	mock.calls.Do = nil
+	mock.lockDo.Unlock()
 }

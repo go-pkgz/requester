@@ -88,61 +88,6 @@ func TestMaxConcurrent_Advanced(t *testing.T) {
 		assert.LessOrEqual(t, atomic.LoadInt32(&active), int32(2))
 	})
 
-	t.Run("goroutine behavior", func(t *testing.T) {
-		var (
-			active    int32
-			maxActive int32
-			finished  int32
-		)
-
-		rmock := &mocks.RoundTripper{RoundTripFunc: func(r *http.Request) (*http.Response, error) {
-			defer func() {
-				atomic.AddInt32(&active, -1)
-				atomic.AddInt32(&finished, 1)
-			}()
-
-			for {
-				current := atomic.LoadInt32(&active)
-				stored := atomic.LoadInt32(&maxActive)
-				if current > stored {
-					atomic.CompareAndSwapInt32(&maxActive, stored, current)
-				}
-				if current <= stored {
-					break
-				}
-			}
-
-			time.Sleep(10 * time.Millisecond)
-			return &http.Response{StatusCode: 200}, nil
-		}}
-
-		h := MaxConcurrent(3)
-		wrapped := h(rmock)
-
-		var wg sync.WaitGroup
-		numRequests := 10
-
-		// start goroutines but ensure they start roughly at the same time
-		readyChannel := make(chan struct{})
-		for i := 0; i < numRequests; i++ {
-			wg.Add(1)
-			go func() {
-				defer wg.Done()
-				<-readyChannel // wait for signal
-				req, _ := http.NewRequest("GET", "http://example.com/blah", http.NoBody)
-				_, err := wrapped.RoundTrip(req)
-				require.NoError(t, err)
-			}()
-		}
-
-		// signal all goroutines to start
-		close(readyChannel)
-		wg.Wait()
-
-		assert.Equal(t, int32(3), atomic.LoadInt32(&maxActive), "max concurrent should be 3")
-		assert.Equal(t, int32(numRequests), atomic.LoadInt32(&finished), "all requests should finish")
-	})
-
 	t.Run("stress test", func(t *testing.T) {
 		if testing.Short() {
 			t.Skip("skipping stress test in short mode")

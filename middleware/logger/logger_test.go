@@ -76,3 +76,139 @@ func TestMiddleware_HandleWithOptions(t *testing.T) {
 
 	assert.Equal(t, 1, len(loggerMock.LogfCalls()))
 }
+func TestLogger_EdgeCases(t *testing.T) {
+	t.Run("non-standard headers", func(t *testing.T) {
+		outBuf := bytes.NewBuffer(nil)
+		loggerMock := &mocks.LoggerSvc{
+			LogfFunc: func(format string, args ...interface{}) {
+				_, _ = fmt.Fprintf(outBuf, format, args...)
+			},
+		}
+		l := New(loggerMock, WithHeaders)
+
+		ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("k1", "v1")
+			_, err := w.Write([]byte("ok"))
+			require.NoError(t, err)
+		}))
+		defer ts.Close()
+
+		req, err := http.NewRequest("GET", ts.URL+"?k=v", http.NoBody)
+		require.NoError(t, err)
+
+		// use complex unicode char sequence that might affect json marshaling
+		req.Header.Set("Test-Header", "привет世界")
+		req.Header.Set("Multiple-Values", "val1")
+		req.Header.Add("Multiple-Values", "val2")
+
+		client := http.Client{Transport: l.Middleware(http.DefaultTransport)}
+		resp, err := client.Do(req)
+		require.NoError(t, err)
+		assert.Equal(t, 200, resp.StatusCode)
+
+		logOutput := outBuf.String()
+		assert.Contains(t, logOutput, "Test-Header")
+		assert.Contains(t, logOutput, "привет世界")
+		assert.Contains(t, logOutput, "Multiple-Values")
+		assert.Contains(t, logOutput, "val1")
+		assert.Contains(t, logOutput, "val2")
+	})
+
+	t.Run("prefix handling", func(t *testing.T) {
+		outBuf := bytes.NewBuffer(nil)
+		loggerMock := &mocks.LoggerSvc{
+			LogfFunc: func(format string, args ...interface{}) {
+				_, _ = fmt.Fprintf(outBuf, format, args...)
+			},
+		}
+		l := New(loggerMock, Prefix("TEST-PREFIX"))
+
+		ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			_, err := w.Write([]byte("ok"))
+			require.NoError(t, err)
+		}))
+		defer ts.Close()
+
+		client := http.Client{Transport: l.Middleware(http.DefaultTransport)}
+		resp, err := client.Get(ts.URL)
+		require.NoError(t, err)
+		assert.Equal(t, 200, resp.StatusCode)
+
+		assert.True(t, strings.HasPrefix(outBuf.String(), "TEST-PREFIX"))
+	})
+
+	t.Run("large body truncation", func(t *testing.T) {
+		outBuf := bytes.NewBuffer(nil)
+		loggerMock := &mocks.LoggerSvc{
+			LogfFunc: func(format string, args ...interface{}) {
+				_, _ = fmt.Fprintf(outBuf, format, args...)
+			},
+		}
+		l := New(loggerMock, WithBody)
+
+		ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			_, err := w.Write([]byte("ok"))
+			require.NoError(t, err)
+		}))
+		defer ts.Close()
+
+		largeBody := strings.Repeat("x", 2000)
+		req, err := http.NewRequest("POST", ts.URL, strings.NewReader(largeBody))
+		require.NoError(t, err)
+
+		client := http.Client{Transport: l.Middleware(http.DefaultTransport)}
+		resp, err := client.Do(req)
+		require.NoError(t, err)
+		assert.Equal(t, 200, resp.StatusCode)
+
+		output := outBuf.String()
+		assert.Contains(t, output, "...")
+		assert.True(t, len(output) < len(largeBody))
+	})
+
+	t.Run("multiline body", func(t *testing.T) {
+		outBuf := bytes.NewBuffer(nil)
+		loggerMock := &mocks.LoggerSvc{
+			LogfFunc: func(format string, args ...interface{}) {
+				_, _ = fmt.Fprintf(outBuf, format, args...)
+			},
+		}
+		l := New(loggerMock, WithBody)
+
+		ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			_, err := w.Write([]byte("ok"))
+			require.NoError(t, err)
+		}))
+		defer ts.Close()
+
+		bodyContent := "line1\nline2\nline3"
+		req, err := http.NewRequest("POST", ts.URL, strings.NewReader(bodyContent))
+		require.NoError(t, err)
+
+		client := http.Client{Transport: l.Middleware(http.DefaultTransport)}
+		resp, err := client.Do(req)
+		require.NoError(t, err)
+		assert.Equal(t, 200, resp.StatusCode)
+
+		output := outBuf.String()
+		assert.NotContains(t, output, "\n")
+		assert.Contains(t, output, "line1 line2 line3")
+	})
+
+	t.Run("nil logger", func(t *testing.T) {
+		l := New(nil, WithBody)
+		ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			_, err := w.Write([]byte("ok"))
+			require.NoError(t, err)
+		}))
+		defer ts.Close()
+
+		req, err := http.NewRequest("POST", ts.URL, strings.NewReader("test"))
+		require.NoError(t, err)
+
+		client := http.Client{Transport: l.Middleware(http.DefaultTransport)}
+		resp, err := client.Do(req)
+		require.NoError(t, err)
+		assert.Equal(t, 200, resp.StatusCode)
+	})
+}

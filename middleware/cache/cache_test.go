@@ -2,10 +2,12 @@ package cache
 
 import (
 	"bytes"
+	"errors"
 	"io"
 	"net/http"
 	"net/http/httptest"
 	"strconv"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -15,7 +17,6 @@ import (
 )
 
 func Test_extractCacheKey(t *testing.T) {
-
 	makeReq := func(method, url string, body io.Reader, headers http.Header) *http.Request {
 		res, err := http.NewRequest(method, url, body)
 		require.NoError(t, err)
@@ -117,7 +118,6 @@ func Test_extractCacheKey(t *testing.T) {
 }
 
 func TestMiddleware_Handle(t *testing.T) {
-
 	cacheMock := mocks.CacheSvc{GetFunc: func(key string, fn func() (interface{}, error)) (interface{}, error) {
 		return fn()
 	}}
@@ -187,4 +187,80 @@ func TestMiddleware_HandleMethodDisabled(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, 200, resp.StatusCode)
 	assert.Equal(t, 1, len(cacheMock.GetCalls()))
+}
+
+func TestMiddleware_EdgeCases(t *testing.T) {
+
+	t.Run("nil service", func(t *testing.T) {
+		c := New(nil)
+		req, err := http.NewRequest("GET", "http://example.com", http.NoBody)
+		require.NoError(t, err)
+		resp, err := c.Middleware(http.DefaultTransport).RoundTrip(req)
+		require.NoError(t, err)
+		assert.NotNil(t, resp)
+	})
+
+	t.Run("large body", func(t *testing.T) {
+		c := New(nil, KeyWithBody)
+		originalBody := strings.Repeat("a", maxBodySize-1)
+		body := bytes.NewBufferString(originalBody)
+		req, err := http.NewRequest("POST", "http://example.com", body)
+		require.NoError(t, err)
+		key, err := c.extractCacheKey(req)
+		require.NoError(t, err)
+		assert.NotEmpty(t, key)
+
+		// verify key was generated with truncated body but original body is still readable
+		data, err := io.ReadAll(req.Body)
+		require.NoError(t, err)
+		assert.Equal(t, originalBody, string(data))
+
+		// get key again with same input
+		body = bytes.NewBufferString(originalBody)
+		req, err = http.NewRequest("POST", "http://example.com", body)
+		require.NoError(t, err)
+		key2, err := c.extractCacheKey(req)
+		require.NoError(t, err)
+
+		// verify keys match even with truncated bodies
+		assert.Equal(t, key, key2, "keys should match for same content even if truncated")
+	})
+
+	t.Run("body read error", func(t *testing.T) {
+		c := New(nil, KeyWithBody)
+		errReader := &errorReader{err: errors.New("read error")}
+		req, err := http.NewRequest("POST", "http://example.com", errReader)
+		require.NoError(t, err)
+		_, err = c.extractCacheKey(req)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "read error")
+	})
+
+	t.Run("body and headers", func(t *testing.T) {
+		c := New(nil, KeyWithBody, KeyWithHeaders)
+		body := bytes.NewBufferString("test body")
+		req, err := http.NewRequest("POST", "http://example.com", body)
+		require.NoError(t, err)
+		req.Header.Set("Test", "value")
+		key1, err := c.extractCacheKey(req)
+		require.NoError(t, err)
+
+		// same request but different header
+		body = bytes.NewBufferString("test body")
+		req, err = http.NewRequest("POST", "http://example.com", body)
+		require.NoError(t, err)
+		req.Header.Set("Test", "different")
+		key2, err := c.extractCacheKey(req)
+		require.NoError(t, err)
+
+		assert.NotEqual(t, key1, key2)
+	})
+}
+
+type errorReader struct {
+	err error
+}
+
+func (e *errorReader) Read(p []byte) (n int, err error) {
+	return 0, e.err
 }

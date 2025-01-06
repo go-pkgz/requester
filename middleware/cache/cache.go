@@ -95,7 +95,6 @@ func (m *Middleware) Middleware(next http.RoundTripper) http.RoundTripper {
 }
 
 func (m *Middleware) extractCacheKey(req *http.Request) (key string, err error) {
-
 	bodyKey := func() (string, error) {
 		if req.Body == nil {
 			return "", nil
@@ -116,7 +115,7 @@ func (m *Middleware) extractCacheKey(req *http.Request) (key string, err error) 
 
 	hkey := ""
 	if m.keyComponents.headers.enabled && m.keyFunc == nil {
-		hh := []string{}
+		var hh []string
 		for k, h := range req.Header {
 			if m.headerAllowed(k) {
 				hh = append(hh, k+":"+strings.Join(h, "%%"))

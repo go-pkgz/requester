@@ -2,12 +2,15 @@ package requester
 
 import (
 	"bytes"
+	"context"
+	"errors"
 	"io"
 	"log"
 	"math/rand"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"strings"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -17,6 +20,7 @@ import (
 
 	"github.com/go-pkgz/requester/middleware"
 	"github.com/go-pkgz/requester/middleware/logger"
+	"github.com/go-pkgz/requester/middleware/mocks"
 )
 
 func TestRequester_DoSimpleMiddleware(t *testing.T) {
@@ -236,6 +240,231 @@ func TestRequester_DoNotReplaceTransport(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, 200, resp.StatusCode)
 	assert.Greater(t, atomic.LoadInt32(&caughtReq), int32(1))
+}
+
+func TestRequester_TransportHandling(t *testing.T) {
+	const baseURL = "http://example.com"
+
+	t.Run("custom transport preserved", func(t *testing.T) {
+		customTransport := &mocks.RoundTripper{RoundTripFunc: func(r *http.Request) (*http.Response, error) {
+			return &http.Response{StatusCode: 200}, nil
+		}}
+
+		client := http.Client{Transport: customTransport}
+		rq := New(client)
+
+		req, err := http.NewRequest(http.MethodGet, baseURL, http.NoBody)
+		require.NoError(t, err)
+		resp, err := rq.Do(req)
+		require.NoError(t, err)
+		assert.Equal(t, 200, resp.StatusCode)
+		assert.Equal(t, 1, customTransport.Calls())
+	})
+
+	t.Run("transport reused between calls", func(t *testing.T) {
+		customTransport := &mocks.RoundTripper{RoundTripFunc: func(r *http.Request) (*http.Response, error) {
+			return &http.Response{StatusCode: 200}, nil
+		}}
+
+		client := http.Client{Transport: customTransport}
+		rq := New(client)
+
+		for i := 0; i < 3; i++ {
+			req, err := http.NewRequest(http.MethodGet, baseURL, http.NoBody)
+			require.NoError(t, err)
+			resp, err := rq.Do(req)
+			require.NoError(t, err)
+			assert.Equal(t, 200, resp.StatusCode)
+		}
+		assert.Equal(t, 3, customTransport.Calls())
+	})
+
+	t.Run("nil transport uses default", func(t *testing.T) {
+		client := http.Client{Transport: nil}
+		rq := New(client)
+		_, err := http.NewRequest(http.MethodGet, baseURL, http.NoBody)
+		require.NoError(t, err)
+		cl := rq.Client()
+		assert.Equal(t, http.DefaultTransport, cl.Transport)
+	})
+}
+
+func TestRequester_MiddlewareHandling(t *testing.T) {
+	const baseURL = "http://example.com"
+
+	t.Run("chaining with With", func(t *testing.T) {
+		var calls []string
+		mw1 := func(next http.RoundTripper) http.RoundTripper {
+			return middleware.RoundTripperFunc(func(req *http.Request) (*http.Response, error) {
+				calls = append(calls, "mw1")
+				return next.RoundTrip(req)
+			})
+		}
+		mw2 := func(next http.RoundTripper) http.RoundTripper {
+			return middleware.RoundTripperFunc(func(req *http.Request) (*http.Response, error) {
+				calls = append(calls, "mw2")
+				return next.RoundTrip(req)
+			})
+		}
+
+		transport := &mocks.RoundTripper{RoundTripFunc: func(r *http.Request) (*http.Response, error) {
+			return &http.Response{StatusCode: 200}, nil
+		}}
+
+		base := New(http.Client{Transport: transport}, mw1)
+		r2 := base.With(mw2)
+
+		req, err := http.NewRequest(http.MethodGet, baseURL, http.NoBody)
+		require.NoError(t, err)
+		_, err = r2.Do(req)
+		require.NoError(t, err)
+		assert.Equal(t, []string{"mw2", "mw1"}, calls)
+	})
+
+	t.Run("nil middleware allowed", func(t *testing.T) {
+		transport := &mocks.RoundTripper{RoundTripFunc: func(r *http.Request) (*http.Response, error) {
+			return &http.Response{StatusCode: 200}, nil
+		}}
+
+		rq := New(http.Client{Transport: transport})
+		rq.Use()       // empty Use call
+		rq = rq.With() // empty With call
+
+		req, err := http.NewRequest(http.MethodGet, baseURL, http.NoBody)
+		require.NoError(t, err)
+		resp, err := rq.Do(req)
+		require.NoError(t, err)
+		assert.Equal(t, 200, resp.StatusCode)
+		assert.Equal(t, 1, transport.Calls())
+	})
+
+	t.Run("chains kept separate", func(t *testing.T) {
+		var rq1Calls, rq2Calls []string
+		mw1 := func(next http.RoundTripper) http.RoundTripper {
+			return middleware.RoundTripperFunc(func(req *http.Request) (*http.Response, error) {
+				rq1Calls = append(rq1Calls, "mw1")
+				return next.RoundTrip(req)
+			})
+		}
+		mw2 := func(next http.RoundTripper) http.RoundTripper {
+			return middleware.RoundTripperFunc(func(req *http.Request) (*http.Response, error) {
+				rq2Calls = append(rq2Calls, "mw2")
+				return next.RoundTrip(req)
+			})
+		}
+
+		transport := &mocks.RoundTripper{RoundTripFunc: func(r *http.Request) (*http.Response, error) {
+			return &http.Response{StatusCode: 200}, nil
+		}}
+
+		rq1 := New(http.Client{Transport: transport})
+		rq2 := New(http.Client{Transport: transport})
+		rq1.Use(mw1)
+		rq2.Use(mw2)
+
+		req, _ := http.NewRequest(http.MethodGet, baseURL, http.NoBody)
+		_, _ = rq1.Do(req)
+		_, _ = rq2.Do(req)
+
+		assert.Equal(t, []string{"mw1"}, rq1Calls)
+		assert.Equal(t, []string{"mw2"}, rq2Calls)
+	})
+}
+
+func TestRequester_ErrorHandling(t *testing.T) {
+	const baseURL = "http://example.com"
+
+	t.Run("error from middleware", func(t *testing.T) {
+		expectedErr := errors.New("custom error")
+		errorMW := func(next http.RoundTripper) http.RoundTripper {
+			return middleware.RoundTripperFunc(func(req *http.Request) (*http.Response, error) {
+				return nil, expectedErr
+			})
+		}
+
+		rq := New(http.Client{})
+		rq.Use(errorMW)
+
+		req, err := http.NewRequest(http.MethodGet, baseURL, http.NoBody)
+		require.NoError(t, err)
+		_, err = rq.Do(req)
+		assert.ErrorIs(t, err, expectedErr)
+	})
+
+	t.Run("error propagation chain", func(t *testing.T) {
+		var calls []string
+		mw1 := func(next http.RoundTripper) http.RoundTripper {
+			return middleware.RoundTripperFunc(func(req *http.Request) (*http.Response, error) {
+				calls = append(calls, "mw1-before")
+				resp, err := next.RoundTrip(req)
+				if err != nil {
+					calls = append(calls, "mw1-error")
+				}
+				return resp, err
+			})
+		}
+
+		expectedErr := errors.New("transport error")
+		transport := &mocks.RoundTripper{RoundTripFunc: func(r *http.Request) (*http.Response, error) {
+			return nil, expectedErr
+		}}
+
+		rq := New(http.Client{Transport: transport}, mw1)
+		req, _ := http.NewRequest(http.MethodGet, baseURL, http.NoBody)
+		_, err := rq.Do(req)
+		require.Error(t, err)
+		assert.Equal(t, []string{"mw1-before", "mw1-error"}, calls)
+		assert.ErrorIs(t, err, expectedErr)
+	})
+}
+
+func TestRequester_Timeouts(t *testing.T) {
+	const baseURL = "http://example.com"
+
+	t.Run("client timeout", func(t *testing.T) {
+		transport := &mocks.RoundTripper{RoundTripFunc: func(r *http.Request) (*http.Response, error) {
+			select {
+			case <-r.Context().Done():
+				return nil, r.Context().Err()
+			case <-time.After(100 * time.Millisecond):
+				return &http.Response{StatusCode: 200}, nil
+			}
+		}}
+
+		client := http.Client{
+			Transport: transport,
+			Timeout:   50 * time.Millisecond,
+		}
+		rq := New(client)
+
+		req, err := http.NewRequest(http.MethodGet, baseURL, http.NoBody)
+		require.NoError(t, err)
+		_, err = rq.Do(req)
+		require.Error(t, err)
+		assert.True(t, strings.Contains(err.Error(), "context deadline exceeded") ||
+			strings.Contains(err.Error(), "Client.Timeout"))
+	})
+
+	t.Run("request timeout", func(t *testing.T) {
+		transport := &mocks.RoundTripper{RoundTripFunc: func(r *http.Request) (*http.Response, error) {
+			select {
+			case <-r.Context().Done():
+				return nil, r.Context().Err()
+			case <-time.After(100 * time.Millisecond):
+				return &http.Response{StatusCode: 200}, nil
+			}
+		}}
+
+		rq := New(http.Client{Transport: transport})
+		ctx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
+		defer cancel()
+
+		req, err := http.NewRequestWithContext(ctx, http.MethodGet, baseURL, http.NoBody)
+		require.NoError(t, err)
+		_, err = rq.Do(req)
+		require.Error(t, err)
+		assert.ErrorIs(t, err, context.DeadlineExceeded)
+	})
 }
 
 func ExampleNew() {

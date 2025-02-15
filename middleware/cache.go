@@ -37,7 +37,7 @@ type CacheMiddleware struct {
 
 // RoundTrip implements http.RoundTripper
 func (c *CacheMiddleware) RoundTrip(req *http.Request) (*http.Response, error) {
-	// Check if method is allowed
+	// check if method is allowed
 	methodAllowed := false
 	for _, m := range c.allowedMethods {
 		if req.Method == m {
@@ -49,11 +49,10 @@ func (c *CacheMiddleware) RoundTrip(req *http.Request) (*http.Response, error) {
 		return c.next.RoundTrip(req)
 	}
 
-	// Generate cache key
-	key := c.makeKey(req)
+	key := c.makeKey(req) // generate cache key based on request
 
 	c.mu.Lock()
-	// Remove expired entries
+	// remove expired entries
 	for len(c.keys) > 0 {
 		oldestKey := c.keys[0]
 		if time.Since(c.cache[oldestKey].createdAt) < c.ttl {
@@ -62,13 +61,12 @@ func (c *CacheMiddleware) RoundTrip(req *http.Request) (*http.Response, error) {
 		delete(c.cache, oldestKey)
 		c.keys = c.keys[1:]
 	}
-
-	// Check cache
+	// check cache
 	entry, found := c.cache[key]
 	c.mu.Unlock()
 
 	if found {
-		// Cache hit - reconstruct response
+		// cache hit - reconstruct response
 		return &http.Response{
 			Status:        fmt.Sprintf("%d %s", entry.status, http.StatusText(entry.status)),
 			StatusCode:    entry.status,
@@ -82,18 +80,18 @@ func (c *CacheMiddleware) RoundTrip(req *http.Request) (*http.Response, error) {
 		}, nil
 	}
 
-	// Fetch fresh response
+	// fetch fresh response
 	resp, err := c.next.RoundTrip(req)
 	if err != nil {
 		return resp, err
 	}
 
-	// Check if response code is allowed for caching
+	// check if response code is allowed for caching
 	if !c.shouldCache(resp.StatusCode) {
 		return resp, nil
 	}
 
-	// Read and store response body
+	// read and store response body
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return resp, err
@@ -101,25 +99,20 @@ func (c *CacheMiddleware) RoundTrip(req *http.Request) (*http.Response, error) {
 	_ = resp.Body.Close()
 	resp.Body = io.NopCloser(bytes.NewReader(body))
 
-	// Store in cache
+	// store in cache
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	// Evict oldest if maxKeys reached
+	// evict oldest if maxKeys reached
 	if len(c.cache) >= c.maxKeys {
 		oldestKey := c.keys[0]
 		delete(c.cache, oldestKey)
 		c.keys = c.keys[1:]
 	}
 
-	// Store new entry
-	c.cache[key] = CacheEntry{
-		body:      body,
-		headers:   resp.Header.Clone(),
-		status:    resp.StatusCode,
-		createdAt: time.Now(),
-	}
-	c.keys = append(c.keys, key) // Maintain order
+	// store new entry
+	c.cache[key] = CacheEntry{body: body, headers: resp.Header.Clone(), status: resp.StatusCode, createdAt: time.Now()}
+	c.keys = append(c.keys, key) // maintain order of keys for LRU eviction
 
 	return resp, nil
 }

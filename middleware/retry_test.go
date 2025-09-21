@@ -125,19 +125,19 @@ func TestRetry_BackoffStrategies(t *testing.T) {
 		{
 			name:        "constant backoff",
 			backoff:     BackoffConstant,
-			minDuration: 3 * time.Millisecond, // 1ms * 3
+			minDuration: 3 * time.Millisecond,  // 1ms * 3
 			maxDuration: 15 * time.Millisecond, // increased buffer for CI environments
 		},
 		{
 			name:        "linear backoff",
 			backoff:     BackoffLinear,
-			minDuration: 6 * time.Millisecond, // 1ms + 2ms + 3ms
+			minDuration: 6 * time.Millisecond,  // 1ms + 2ms + 3ms
 			maxDuration: 20 * time.Millisecond, // increased buffer for CI environments
 		},
 		{
 			name:        "exponential backoff",
 			backoff:     BackoffExponential,
-			minDuration: 7 * time.Millisecond, // 1ms + 2ms + 4ms
+			minDuration: 7 * time.Millisecond,  // 1ms + 2ms + 4ms
 			maxDuration: 25 * time.Millisecond, // increased buffer for CI environments
 		},
 	}

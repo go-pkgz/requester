@@ -76,7 +76,7 @@ func (m *Middleware) Middleware(next http.RoundTripper) http.RoundTripper {
 		cachedResp, e := m.Get(key, func() (interface{}, error) {
 			resp, err = next.RoundTrip(req)
 			if err != nil {
-				return nil, err
+				return nil, fmt.Errorf("cache: transport error: %w", err)
 			}
 			if resp.Body == nil {
 				return nil, nil
@@ -101,7 +101,7 @@ func (m *Middleware) extractCacheKey(req *http.Request) (key string, err error) 
 		}
 		reqBody, e := io.ReadAll(io.LimitReader(req.Body, maxBodySize))
 		if e != nil {
-			return "", e
+			return "", fmt.Errorf("cache: failed to read body: %w", e)
 		}
 		_ = req.Body.Close()
 		req.Body = io.NopCloser(bytes.NewReader(reqBody))

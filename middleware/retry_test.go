@@ -105,7 +105,7 @@ func TestRetry_BasicBehavior(t *testing.T) {
 
 		h := Retry(5, 50*time.Millisecond)(rmock)
 
-		// Cancel request after first attempt
+		// cancel request after first attempt
 		time.AfterFunc(20*time.Millisecond, cancel)
 
 		_, err = h.RoundTrip(req)
@@ -187,7 +187,7 @@ func TestRetry_BackoffStrategies(t *testing.T) {
 		_, _ = h.RoundTrip(req)
 		duration := time.Since(start)
 
-		// With exponential backoff and 10ms initial delay, without max delay
+		// with exponential backoff and 10ms initial delay, without max delay
 		// it would be 10ms + 20ms + 40ms = 70ms, but with max delay of 15ms
 		// it should be 10ms + 15ms + 15ms = 40ms
 		assert.Less(t, duration, 50*time.Millisecond)
@@ -212,9 +212,9 @@ func TestRetry_BackoffStrategies(t *testing.T) {
 		require.Greater(t, len(callTimes), 2)
 		delay1 := callTimes[1].Sub(callTimes[0])
 		delay2 := callTimes[2].Sub(callTimes[1])
-		// With 0.5 jitter and 10ms delay, delays should be different
+		// with 0.5 jitter and 10ms delay, delays should be different
 		assert.NotEqual(t, delay1, delay2)
-		// But both should be in range 5ms-15ms (10ms ±50%)
+		// but both should be in range 5ms-15ms (10ms ±50%)
 		assert.Greater(t, delay1, 5*time.Millisecond)
 		assert.Less(t, delay1, 15*time.Millisecond)
 		assert.Greater(t, delay2, 5*time.Millisecond)
@@ -348,7 +348,7 @@ func TestRetry_RequestBodyHandling(t *testing.T) {
 		require.NoError(t, err)
 
 		resp, err := h.RoundTrip(req)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.Equal(t, 503, resp.StatusCode)
 		assert.Equal(t, int32(1), atomic.LoadInt32(&attemptCount), "should only attempt once when buffering disabled")
 	})

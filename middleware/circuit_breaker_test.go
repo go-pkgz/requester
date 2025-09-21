@@ -35,5 +35,5 @@ func TestCircuitBreaker(t *testing.T) {
 	assert.Equal(t, 201, resp.StatusCode)
 
 	assert.Equal(t, 1, rmock.Calls())
-	assert.Equal(t, 1, len(cbMock.ExecuteCalls()))
+	assert.Len(t, cbMock.ExecuteCalls(), 1)
 }

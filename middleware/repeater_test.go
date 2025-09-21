@@ -29,7 +29,7 @@ func TestRepeater_Passed(t *testing.T) {
 		return resp, errors.New("blah")
 	}}
 
-	repeater := &mocks.RepeaterSvcMock{DoFunc: func(ctx context.Context, fun func() error, errs ...error) (err error) {
+	repeater := &mocks.RepeaterSvcMock{DoFunc: func(_ context.Context, fun func() error, errs ...error) (err error) {
 		for i := 0; i < 5; i++ {
 			if err = fun(); err == nil {
 				return nil
@@ -56,7 +56,7 @@ func TestRepeater_Failed(t *testing.T) {
 		return resp, errors.New("http error")
 	}}
 
-	repeater := &mocks.RepeaterSvcMock{DoFunc: func(ctx context.Context, fun func() error, errs ...error) (err error) {
+	repeater := &mocks.RepeaterSvcMock{DoFunc: func(_ context.Context, fun func() error, errs ...error) (err error) {
 		for i := 0; i < 5; i++ {
 			if err = fun(); err == nil {
 				return nil
@@ -82,7 +82,7 @@ func TestRepeater_FailedStatus(t *testing.T) {
 		return resp, nil
 	}}
 
-	repeater := &mocks.RepeaterSvcMock{DoFunc: func(ctx context.Context, fun func() error, errs ...error) (err error) {
+	repeater := &mocks.RepeaterSvcMock{DoFunc: func(_ context.Context, fun func() error, errs ...error) (err error) {
 		for i := 0; i < 5; i++ {
 			if err = fun(); err == nil {
 				return nil
@@ -134,7 +134,7 @@ func TestRepeater_EdgeCases(t *testing.T) {
 			return &http.Response{StatusCode: 500}, nil
 		}}
 
-		repeater := &mocks.RepeaterSvcMock{DoFunc: func(ctx context.Context, fun func() error, errs ...error) error {
+		repeater := &mocks.RepeaterSvcMock{DoFunc: func(ctx context.Context, fun func() error, _ ...error) error {
 			for i := 0; i < 5; i++ {
 				select {
 				case <-ctx.Done():
@@ -178,7 +178,7 @@ func TestRepeater_EdgeCases(t *testing.T) {
 			return &http.Response{StatusCode: 500}, nil
 		}}
 
-		repeater := &mocks.RepeaterSvcMock{DoFunc: func(ctx context.Context, fun func() error, errs ...error) error {
+		repeater := &mocks.RepeaterSvcMock{DoFunc: func(ctx context.Context, fun func() error, _ ...error) error {
 			for i := 0; i < 3; i++ {
 				if err := fun(); err == nil {
 					return nil
@@ -196,7 +196,7 @@ func TestRepeater_EdgeCases(t *testing.T) {
 
 		_, err = h(rmock).RoundTrip(req)
 		require.Error(t, err)
-		assert.Equal(t, 3, len(bodies))
+		assert.Len(t, bodies, 3)
 		for _, body := range bodies {
 			assert.Equal(t, bodyContent, body)
 		}
@@ -248,7 +248,7 @@ func TestRepeater_EdgeCases(t *testing.T) {
 					}, nil
 				}}
 
-				repeater := &mocks.RepeaterSvcMock{DoFunc: func(ctx context.Context, fun func() error, errs ...error) error {
+				repeater := &mocks.RepeaterSvcMock{DoFunc: func(ctx context.Context, fun func() error, _ ...error) error {
 					var lastErr error
 					for i := 0; i < 5; i++ {
 						var err error

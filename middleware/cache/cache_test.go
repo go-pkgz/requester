@@ -19,7 +19,7 @@ import (
 func Test_extractCacheKey(t *testing.T) {
 	makeReq := func(method, url string, body io.Reader, headers http.Header) *http.Request {
 		res, err := http.NewRequest(method, url, body)
-		require.NoError(t, err)
+		assert.NoError(t, err)
 		if headers != nil {
 			res.Header = headers
 		}
@@ -104,12 +104,12 @@ func Test_extractCacheKey(t *testing.T) {
 			c := New(nil, tt.opts...)
 			c.dbg = true
 			keyDbg, err := c.extractCacheKey(tt.req)
-			require.NoError(t, err)
+			assert.NoError(t, err)
 			assert.Equal(t, tt.keyDbg, keyDbg)
 
 			c.dbg = false
 			keyHash, err := c.extractCacheKey(tt.req)
-			require.NoError(t, err)
+			assert.NoError(t, err)
 			assert.Equal(t, tt.keyHash, keyHash)
 
 		})
@@ -118,7 +118,7 @@ func Test_extractCacheKey(t *testing.T) {
 }
 
 func TestMiddleware_Handle(t *testing.T) {
-	cacheMock := mocks.CacheSvc{GetFunc: func(key string, fn func() (interface{}, error)) (interface{}, error) {
+	cacheMock := mocks.CacheSvc{GetFunc: func(_ string, fn func() (interface{}, error)) (interface{}, error) {
 		return fn()
 	}}
 	c := New(&cacheMock)
@@ -127,7 +127,7 @@ func TestMiddleware_Handle(t *testing.T) {
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("k1", "v1")
 		_, err := w.Write([]byte("something"))
-		require.NoError(t, err)
+		assert.NoError(t, err)
 	}))
 
 	client := http.Client{Transport: c.Middleware(http.DefaultTransport)}
@@ -142,7 +142,7 @@ func TestMiddleware_Handle(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, "something", string(v))
 	assert.Equal(t, "v1", resp.Header.Get("k1"))
-	assert.Equal(t, 1, len(cacheMock.GetCalls()))
+	assert.Len(t, cacheMock.GetCalls(), 1)
 	assert.Contains(t, cacheMock.GetCalls()[0].Key, "?k=v##GET####")
 
 	req, err = http.NewRequest("GET", ts.URL+"?k=v", http.NoBody)
@@ -155,12 +155,12 @@ func TestMiddleware_Handle(t *testing.T) {
 	v, err = io.ReadAll(resp.Body)
 	require.NoError(t, err)
 	assert.Equal(t, "something", string(v))
-	assert.Equal(t, 2, len(cacheMock.GetCalls()))
+	assert.Len(t, cacheMock.GetCalls(), 2)
 	assert.Contains(t, cacheMock.GetCalls()[1].Key, "?k=v##GET####")
 }
 
 func TestMiddleware_HandleMethodDisabled(t *testing.T) {
-	cacheMock := mocks.CacheSvc{GetFunc: func(key string, fn func() (interface{}, error)) (interface{}, error) {
+	cacheMock := mocks.CacheSvc{GetFunc: func(_ string, fn func() (interface{}, error)) (interface{}, error) {
 		return fn()
 	}}
 	c := New(&cacheMock, Methods("PUT"))
@@ -169,7 +169,7 @@ func TestMiddleware_HandleMethodDisabled(t *testing.T) {
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("k1", "v1")
 		_, err := w.Write([]byte("something"))
-		require.NoError(t, err)
+		assert.NoError(t, err)
 	}))
 
 	client := http.Client{Transport: c.Middleware(http.DefaultTransport)}
@@ -179,14 +179,14 @@ func TestMiddleware_HandleMethodDisabled(t *testing.T) {
 	resp, err := client.Do(req)
 	require.NoError(t, err)
 	assert.Equal(t, 200, resp.StatusCode)
-	assert.Equal(t, 0, len(cacheMock.GetCalls()))
+	assert.Empty(t, cacheMock.GetCalls())
 
 	req, err = http.NewRequest("PUT", ts.URL+"?k=v", http.NoBody)
 	require.NoError(t, err)
 	resp, err = client.Do(req)
 	require.NoError(t, err)
 	assert.Equal(t, 200, resp.StatusCode)
-	assert.Equal(t, 1, len(cacheMock.GetCalls()))
+	assert.Len(t, cacheMock.GetCalls(), 1)
 }
 
 func TestMiddleware_EdgeCases(t *testing.T) {
@@ -261,6 +261,6 @@ type errorReader struct {
 	err error
 }
 
-func (e *errorReader) Read(p []byte) (n int, err error) {
+func (e *errorReader) Read(_ []byte) (n int, err error) {
 	return 0, e.err
 }

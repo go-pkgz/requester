@@ -21,7 +21,7 @@ func TestMaxConcurrentHandler(t *testing.T) {
 	rmock := &mocks.RoundTripper{RoundTripFunc: func(r *http.Request) (*http.Response, error) {
 		c := atomic.AddInt32(&concurrentCount, 1)
 		t.Logf("concurrent: %d", c)
-		assert.True(t, c <= 8, c)
+		assert.LessOrEqual(t, c, int32(8))
 		defer func() {
 			atomic.AddInt32(&concurrentCount, -1)
 		}()
@@ -41,7 +41,7 @@ func TestMaxConcurrentHandler(t *testing.T) {
 		go func() {
 			defer wg.Done()
 			resp, err := h(rmock).RoundTrip(req)
-			require.NoError(t, err)
+			assert.NoError(t, err)
 			assert.Equal(t, 201, resp.StatusCode)
 		}()
 	}
@@ -80,7 +80,7 @@ func TestMaxConcurrent_Advanced(t *testing.T) {
 				req, _ := http.NewRequestWithContext(ctx, "GET", "http://example.com/blah", http.NoBody)
 				_, err := wrapped.RoundTrip(req)
 				assert.Error(t, err)
-				assert.True(t, errors.Is(err, context.DeadlineExceeded))
+				assert.ErrorIs(t, err, context.DeadlineExceeded)
 			}()
 		}
 		wg.Wait()

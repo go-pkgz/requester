@@ -26,7 +26,7 @@ func TestMiddleware_Handle(t *testing.T) {
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("k1", "v1")
 		_, err := w.Write([]byte("something"))
-		require.NoError(t, err)
+		assert.NoError(t, err)
 	}))
 
 	client := http.Client{Transport: l.Middleware(http.DefaultTransport)}
@@ -41,7 +41,7 @@ func TestMiddleware_Handle(t *testing.T) {
 	assert.True(t, strings.HasPrefix(outBuf.String(), "GET http://127.0.0.1:"))
 	assert.Contains(t, outBuf.String(), "time:")
 
-	assert.Equal(t, 1, len(loggerMock.LogfCalls()))
+	assert.Len(t, loggerMock.LogfCalls(), 1)
 }
 
 func TestMiddleware_HandleWithOptions(t *testing.T) {
@@ -56,7 +56,7 @@ func TestMiddleware_HandleWithOptions(t *testing.T) {
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("k1", "v1")
 		_, err := w.Write([]byte("something"))
-		require.NoError(t, err)
+		assert.NoError(t, err)
 	}))
 
 	client := http.Client{Transport: l.Middleware(http.DefaultTransport)}
@@ -74,7 +74,7 @@ func TestMiddleware_HandleWithOptions(t *testing.T) {
 	assert.Contains(t, outBuf.String(), `{"Inkey":["inval"]}`)
 	assert.Contains(t, outBuf.String(), `body: blah1 blah2 blah3`)
 
-	assert.Equal(t, 1, len(loggerMock.LogfCalls()))
+	assert.Len(t, loggerMock.LogfCalls(), 1)
 }
 func TestLogger_EdgeCases(t *testing.T) {
 	t.Run("non-standard headers", func(t *testing.T) {
@@ -89,7 +89,7 @@ func TestLogger_EdgeCases(t *testing.T) {
 		ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			w.Header().Set("k1", "v1")
 			_, err := w.Write([]byte("ok"))
-			require.NoError(t, err)
+			assert.NoError(t, err)
 		}))
 		defer ts.Close()
 
@@ -125,7 +125,7 @@ func TestLogger_EdgeCases(t *testing.T) {
 
 		ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			_, err := w.Write([]byte("ok"))
-			require.NoError(t, err)
+			assert.NoError(t, err)
 		}))
 		defer ts.Close()
 
@@ -148,7 +148,7 @@ func TestLogger_EdgeCases(t *testing.T) {
 
 		ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			_, err := w.Write([]byte("ok"))
-			require.NoError(t, err)
+			assert.NoError(t, err)
 		}))
 		defer ts.Close()
 
@@ -163,7 +163,7 @@ func TestLogger_EdgeCases(t *testing.T) {
 
 		output := outBuf.String()
 		assert.Contains(t, output, "...")
-		assert.True(t, len(output) < len(largeBody))
+		assert.Less(t, len(output), len(largeBody))
 	})
 
 	t.Run("multiline body", func(t *testing.T) {
@@ -177,7 +177,7 @@ func TestLogger_EdgeCases(t *testing.T) {
 
 		ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			_, err := w.Write([]byte("ok"))
-			require.NoError(t, err)
+			assert.NoError(t, err)
 		}))
 		defer ts.Close()
 
@@ -199,7 +199,7 @@ func TestLogger_EdgeCases(t *testing.T) {
 		l := New(nil, WithBody)
 		ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			_, err := w.Write([]byte("ok"))
-			require.NoError(t, err)
+			assert.NoError(t, err)
 		}))
 		defer ts.Close()
 

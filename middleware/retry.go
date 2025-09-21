@@ -63,7 +63,7 @@ func Retry(attempts int, initialDelay time.Duration, opts ...RetryOption) RoundT
 			maxDelay:      30 * time.Second,
 			backoff:       BackoffExponential,
 			jitterFactor:  0.1,
-			bufferBodies:  false, // disabled by default to preserve streaming; when enabled, reads entire body into memory
+			bufferBodies:  false,            // disabled by default to preserve streaming; when enabled, reads entire body into memory
 			maxBufferSize: 10 * 1024 * 1024, // 10MB limit when buffering enabled
 		}
 
@@ -104,14 +104,14 @@ func (r *RetryMiddleware) RoundTrip(req *http.Request) (*http.Response, error) {
 
 	for attempt := 0; attempt < attempts; attempt++ {
 		if req.Context().Err() != nil {
-			return nil, req.Context().Err()
+			return nil, fmt.Errorf("retry: context error: %w", req.Context().Err())
 		}
 
 		if attempt > 0 {
 			delay := r.calcDelay(attempt)
 			select {
 			case <-req.Context().Done():
-				return nil, req.Context().Err()
+				return nil, fmt.Errorf("retry: context cancelled during delay: %w", req.Context().Err())
 			case <-time.After(delay):
 			}
 

@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"fmt"
 	"io"
 	"log"
 	"math/rand"
@@ -37,7 +38,7 @@ func TestRequester_DoSimpleMiddleware(t *testing.T) {
 		time.Sleep(100 * time.Millisecond)
 		assert.Equal(t, "blah", r.Header.Get("test"))
 		_, err := w.Write([]byte("something"))
-		require.NoError(t, err)
+		assert.NoError(t, err)
 	}))
 	defer ts.Close()
 
@@ -50,7 +51,7 @@ func TestRequester_DoSimpleMiddleware(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, 200, resp.StatusCode)
 	body, err := io.ReadAll(resp.Body)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Equal(t, "something", string(body))
 }
 
@@ -75,7 +76,7 @@ func TestRequester_DoMiddlewareChain(t *testing.T) {
 		assert.Equal(t, "blah", r.Header.Get("test"))
 		assert.Equal(t, "blah2", r.Header.Get("test2"))
 		_, err := w.Write([]byte("something"))
-		require.NoError(t, err)
+		assert.NoError(t, err)
 	}))
 	defer ts.Close()
 
@@ -90,7 +91,7 @@ func TestRequester_DoMiddlewareChain(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, 200, resp.StatusCode)
 	body, err := io.ReadAll(resp.Body)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Equal(t, "something", string(body))
 }
 
@@ -116,13 +117,13 @@ func TestRequester_With(t *testing.T) {
 		time.Sleep(100 * time.Millisecond)
 		assert.Equal(t, "blah", r.Header.Get("test"))
 		if atomic.LoadInt32(&count) == 0 {
-			assert.Equal(t, "", r.Header.Get("test2"))
+			assert.Empty(t, r.Header.Get("test2"))
 		}
 		if atomic.LoadInt32(&count) == 1 {
 			assert.Equal(t, "blah2", r.Header.Get("test2"))
 		}
 		_, err := w.Write([]byte("something"))
-		require.NoError(t, err)
+		assert.NoError(t, err)
 		atomic.AddInt32(&count, 1)
 	}))
 	defer ts.Close()
@@ -155,7 +156,7 @@ func TestRequester_Client(t *testing.T) {
 		time.Sleep(100 * time.Millisecond)
 		assert.Equal(t, "blah", r.Header.Get("test"))
 		_, err := w.Write([]byte("something"))
-		require.NoError(t, err)
+		assert.NoError(t, err)
 	}))
 	defer ts.Close()
 
@@ -164,7 +165,7 @@ func TestRequester_Client(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, 200, resp.StatusCode)
 	body, err := io.ReadAll(resp.Body)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Equal(t, "something", string(body))
 }
 
@@ -181,12 +182,12 @@ func TestRequester_CustomMiddleware(t *testing.T) {
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		assert.Equal(t, "application/json", r.Header.Get("Content-Type"))
 		assert.Equal(t, "blah2", r.Header.Get("do-not-deleteme"))
-		assert.Equal(t, "", r.Header.Get("deleteme"))
+		assert.Empty(t, r.Header.Get("deleteme"))
 		body, err := io.ReadAll(r.Body)
 		assert.NoError(t, err)
 		assert.Contains(t, string(body), "request body")
 		_, err = w.Write([]byte("something"))
-		require.NoError(t, err)
+		assert.NoError(t, err)
 		time.Sleep(time.Duration(rand.Intn(10)) * time.Millisecond) // nolint
 	}))
 	defer ts.Close()
@@ -214,7 +215,7 @@ func TestRequester_DoNotReplaceTransport(t *testing.T) {
 		atomic.AddInt32(&caughtReq, 1)
 		assert.Equal(t, "value", r.Header.Get("blah"))
 		_, err := w.Write([]byte("something"))
-		require.NoError(t, err)
+		assert.NoError(t, err)
 	}))
 	defer ts.Close()
 	tsURL, err := url.Parse(ts.URL)
@@ -232,7 +233,7 @@ func TestRequester_DoNotReplaceTransport(t *testing.T) {
 	resp, err := rq.Do(req)
 	require.NoError(t, err)
 	assert.Equal(t, 200, resp.StatusCode)
-	assert.Greater(t, atomic.LoadInt32(&caughtReq), int32(0))
+	assert.Positive(t, atomic.LoadInt32(&caughtReq))
 
 	req, err = http.NewRequest("GET", remoteTS.URL, http.NoBody)
 	require.NoError(t, err)
@@ -246,7 +247,7 @@ func TestRequester_TransportHandling(t *testing.T) {
 	const baseURL = "http://example.com"
 
 	t.Run("custom transport preserved", func(t *testing.T) {
-		customTransport := &mocks.RoundTripper{RoundTripFunc: func(r *http.Request) (*http.Response, error) {
+		customTransport := &mocks.RoundTripper{RoundTripFunc: func(_ *http.Request) (*http.Response, error) {
 			return &http.Response{StatusCode: 200}, nil
 		}}
 
@@ -262,7 +263,7 @@ func TestRequester_TransportHandling(t *testing.T) {
 	})
 
 	t.Run("transport reused between calls", func(t *testing.T) {
-		customTransport := &mocks.RoundTripper{RoundTripFunc: func(r *http.Request) (*http.Response, error) {
+		customTransport := &mocks.RoundTripper{RoundTripFunc: func(_ *http.Request) (*http.Response, error) {
 			return &http.Response{StatusCode: 200}, nil
 		}}
 
@@ -307,7 +308,7 @@ func TestRequester_MiddlewareHandling(t *testing.T) {
 			})
 		}
 
-		transport := &mocks.RoundTripper{RoundTripFunc: func(r *http.Request) (*http.Response, error) {
+		transport := &mocks.RoundTripper{RoundTripFunc: func(_ *http.Request) (*http.Response, error) {
 			return &http.Response{StatusCode: 200}, nil
 		}}
 
@@ -322,7 +323,7 @@ func TestRequester_MiddlewareHandling(t *testing.T) {
 	})
 
 	t.Run("nil middleware allowed", func(t *testing.T) {
-		transport := &mocks.RoundTripper{RoundTripFunc: func(r *http.Request) (*http.Response, error) {
+		transport := &mocks.RoundTripper{RoundTripFunc: func(_ *http.Request) (*http.Response, error) {
 			return &http.Response{StatusCode: 200}, nil
 		}}
 
@@ -353,7 +354,7 @@ func TestRequester_MiddlewareHandling(t *testing.T) {
 			})
 		}
 
-		transport := &mocks.RoundTripper{RoundTripFunc: func(r *http.Request) (*http.Response, error) {
+		transport := &mocks.RoundTripper{RoundTripFunc: func(_ *http.Request) (*http.Response, error) {
 			return &http.Response{StatusCode: 200}, nil
 		}}
 
@@ -376,8 +377,8 @@ func TestRequester_ErrorHandling(t *testing.T) {
 
 	t.Run("error from middleware", func(t *testing.T) {
 		expectedErr := errors.New("custom error")
-		errorMW := func(next http.RoundTripper) http.RoundTripper {
-			return middleware.RoundTripperFunc(func(req *http.Request) (*http.Response, error) {
+		errorMW := func(_ http.RoundTripper) http.RoundTripper {
+			return middleware.RoundTripperFunc(func(_ *http.Request) (*http.Response, error) {
 				return nil, expectedErr
 			})
 		}
@@ -399,13 +400,14 @@ func TestRequester_ErrorHandling(t *testing.T) {
 				resp, err := next.RoundTrip(req)
 				if err != nil {
 					calls = append(calls, "mw1-error")
+					return resp, fmt.Errorf("mw1: %w", err)
 				}
-				return resp, err
+				return resp, nil
 			})
 		}
 
 		expectedErr := errors.New("transport error")
-		transport := &mocks.RoundTripper{RoundTripFunc: func(r *http.Request) (*http.Response, error) {
+		transport := &mocks.RoundTripper{RoundTripFunc: func(_ *http.Request) (*http.Response, error) {
 			return nil, expectedErr
 		}}
 
@@ -496,7 +498,7 @@ func ExampleRequester_Do() {
 		panic(err)
 	}
 
-	// Send request and get reposnse
+	// send request and get reposnse
 	resp, err := rq.Do(req)
 	if err != nil {
 		panic(err)

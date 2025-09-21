@@ -155,8 +155,8 @@ func TestCache_Options(t *testing.T) {
 
 		// second request - should be cached
 		req2, _ := http.NewRequest(http.MethodGet, "http://example.com/2", http.NoBody)
-		_, _ = h.RoundTrip(req2) // First call: should hit the backend
-		_, _ = h.RoundTrip(req2) // Second call: should be served from cache
+		_, _ = h.RoundTrip(req2) // first call: should hit the backend
+		_, _ = h.RoundTrip(req2) // second call: should be served from cache
 
 		// third request - triggers eviction of first request
 		req3, _ := http.NewRequest(http.MethodGet, "http://example.com/3", http.NoBody)

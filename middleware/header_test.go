@@ -156,7 +156,7 @@ func TestHeader_EdgeCases(t *testing.T) {
 
 	t.Run("empty headers", func(t *testing.T) {
 		rmock := &mocks.RoundTripper{RoundTripFunc: func(r *http.Request) (*http.Response, error) {
-			assert.Equal(t, "", r.Header.Get("empty-key"))
+			assert.Empty(t, r.Header.Get("empty-key"))
 			assert.Equal(t, "application/json", r.Header.Get("Content-Type"))
 			return &http.Response{StatusCode: 200}, nil
 		}}

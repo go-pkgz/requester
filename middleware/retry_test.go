@@ -3,7 +3,9 @@ package middleware
 import (
 	"context"
 	"errors"
+	"io"
 	"net/http"
+	"strings"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -247,6 +249,231 @@ func TestRetry_BackoffStrategies(t *testing.T) {
 
 		assert.Greater(t, duration, expectedMin, "retries should introduce actual delay")
 		assert.LessOrEqual(t, duration, expectedMax, "delay should not exceed expected range")
+	})
+}
+
+func TestRetry_RequestBodyHandling(t *testing.T) {
+	t.Run("POST request with body retries correctly", func(t *testing.T) {
+		var attemptCount int32
+		expectedBody := "test request body"
+
+		rmock := &mocks.RoundTripper{RoundTripFunc: func(r *http.Request) (*http.Response, error) {
+			count := atomic.AddInt32(&attemptCount, 1)
+
+			// read and verify the body content
+			bodyBytes, err := io.ReadAll(r.Body)
+			require.NoError(t, err)
+			assert.Equal(t, expectedBody, string(bodyBytes), "body should be available on attempt %d", count)
+
+			if count < 3 {
+				return &http.Response{StatusCode: 503}, nil
+			}
+			return &http.Response{StatusCode: 200}, nil
+		}}
+
+		h := Retry(3, time.Millisecond)(rmock)
+		body := strings.NewReader(expectedBody)
+		req, err := http.NewRequest("POST", "http://example.com/", body)
+		require.NoError(t, err)
+
+		// http.NewRequest automatically sets GetBody for common body types like strings.Reader
+		// let's verify this
+		assert.NotNil(t, req.GetBody, "GetBody should be automatically set by http.NewRequest for strings.Reader")
+
+		resp, err := h.RoundTrip(req)
+		require.NoError(t, err)
+		assert.Equal(t, 200, resp.StatusCode)
+		assert.Equal(t, int32(3), atomic.LoadInt32(&attemptCount))
+	})
+
+	t.Run("PUT request with GetBody function retries correctly", func(t *testing.T) {
+		var attemptCount int32
+		expectedBody := "test request body with GetBody"
+
+		rmock := &mocks.RoundTripper{RoundTripFunc: func(r *http.Request) (*http.Response, error) {
+			count := atomic.AddInt32(&attemptCount, 1)
+
+			// read and verify the body content
+			bodyBytes, err := io.ReadAll(r.Body)
+			require.NoError(t, err)
+			assert.Equal(t, expectedBody, string(bodyBytes), "body should be available on attempt %d", count)
+
+			if count < 3 {
+				return &http.Response{StatusCode: 502}, nil
+			}
+			return &http.Response{StatusCode: 200}, nil
+		}}
+
+		h := Retry(3, time.Millisecond)(rmock)
+		req, err := http.NewRequest("PUT", "http://example.com/", strings.NewReader(expectedBody))
+		require.NoError(t, err)
+
+		// set GetBody function for proper retry handling
+		req.GetBody = func() (io.ReadCloser, error) {
+			return io.NopCloser(strings.NewReader(expectedBody)), nil
+		}
+
+		resp, err := h.RoundTrip(req)
+		require.NoError(t, err)
+		assert.Equal(t, 200, resp.StatusCode)
+		assert.Equal(t, int32(3), atomic.LoadInt32(&attemptCount))
+	})
+
+	t.Run("request without GetBody doesn't retry by default", func(t *testing.T) {
+		var attemptCount int32
+		expectedBody := "test request body"
+
+		customReader := io.NopCloser(strings.NewReader(expectedBody))
+
+		rmock := &mocks.RoundTripper{RoundTripFunc: func(r *http.Request) (*http.Response, error) {
+			count := atomic.AddInt32(&attemptCount, 1)
+
+			// read the body content
+			bodyBytes, err := io.ReadAll(r.Body)
+			require.NoError(t, err)
+
+			if count == 1 {
+				assert.Equal(t, expectedBody, string(bodyBytes))
+			} else {
+				// should not retry when buffering disabled
+				t.Error("unexpected retry when buffering is disabled")
+			}
+
+			return &http.Response{StatusCode: 503}, nil
+		}}
+
+		// default - buffering disabled
+		h := Retry(3, time.Millisecond)(rmock)
+		req, err := http.NewRequest("POST", "http://example.com/", customReader)
+		require.NoError(t, err)
+
+		resp, err := h.RoundTrip(req)
+		assert.NoError(t, err)
+		assert.Equal(t, 503, resp.StatusCode)
+		assert.Equal(t, int32(1), atomic.LoadInt32(&attemptCount), "should only attempt once when buffering disabled")
+	})
+
+	t.Run("request without GetBody buffers when enabled", func(t *testing.T) {
+		var attemptCount int32
+		expectedBody := "test request body"
+
+		// custom reader that doesn't get GetBody automatically
+		customReader := io.NopCloser(strings.NewReader(expectedBody))
+
+		rmock := &mocks.RoundTripper{RoundTripFunc: func(r *http.Request) (*http.Response, error) {
+			count := atomic.AddInt32(&attemptCount, 1)
+
+			// read the body content
+			bodyBytes, err := io.ReadAll(r.Body)
+			require.NoError(t, err)
+
+			// with auto-buffering, body should be available on all attempts
+			assert.Equal(t, expectedBody, string(bodyBytes), "body should be available on attempt %d", count)
+
+			if count < 3 {
+				return &http.Response{StatusCode: 503}, nil
+			}
+			return &http.Response{StatusCode: 200}, nil
+		}}
+
+		h := Retry(3, time.Millisecond, RetryBufferBodies(true))(rmock)
+		req, err := http.NewRequest("POST", "http://example.com/", customReader)
+		require.NoError(t, err)
+
+		// verify GetBody is nil for custom reader
+		assert.Nil(t, req.GetBody, "GetBody should be nil for custom io.ReadCloser")
+
+		resp, err := h.RoundTrip(req)
+		require.NoError(t, err)
+		assert.Equal(t, 200, resp.StatusCode)
+		assert.Equal(t, int32(3), atomic.LoadInt32(&attemptCount))
+	})
+
+	t.Run("request with disabled buffering doesn't retry", func(t *testing.T) {
+		var attemptCount int32
+		expectedBody := "test request body"
+
+		// custom reader that doesn't get GetBody automatically
+		customReader := io.NopCloser(strings.NewReader(expectedBody))
+
+		rmock := &mocks.RoundTripper{RoundTripFunc: func(r *http.Request) (*http.Response, error) {
+			count := atomic.AddInt32(&attemptCount, 1)
+
+			// read the body content
+			bodyBytes, err := io.ReadAll(r.Body)
+			require.NoError(t, err)
+
+			if count == 1 {
+				// first and only attempt should have the body
+				assert.Equal(t, expectedBody, string(bodyBytes))
+			} else {
+				t.Error("unexpected retry when buffering is disabled")
+			}
+
+			return &http.Response{StatusCode: 503}, nil
+		}}
+
+		h := Retry(3, time.Millisecond, RetryBufferBodies(false))(rmock)
+		req, err := http.NewRequest("POST", "http://example.com/", customReader)
+		require.NoError(t, err)
+
+		resp, err := h.RoundTrip(req)
+		require.NoError(t, err)
+		assert.Equal(t, 503, resp.StatusCode)
+		assert.Equal(t, int32(1), atomic.LoadInt32(&attemptCount), "should only attempt once when buffering disabled")
+	})
+
+	t.Run("request body exceeding max buffer size fails when buffering enabled", func(t *testing.T) {
+		var attemptCount int32
+		largeBody := strings.Repeat("x", 513) // just over 512 bytes
+
+		customReader := io.NopCloser(strings.NewReader(largeBody))
+
+		rmock := &mocks.RoundTripper{RoundTripFunc: func(r *http.Request) (*http.Response, error) {
+			atomic.AddInt32(&attemptCount, 1)
+			return &http.Response{StatusCode: 503}, nil
+		}}
+
+		// enable buffering with max size of 512 bytes
+		h := Retry(3, time.Millisecond, RetryBufferBodies(true), RetryMaxBufferSize(512))(rmock)
+		req, err := http.NewRequest("POST", "http://example.com/", customReader)
+		require.NoError(t, err)
+
+		_, err = h.RoundTrip(req)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "request body too large")
+		assert.Contains(t, err.Error(), "513 bytes exceeds 512 byte limit")
+		assert.Equal(t, int32(0), atomic.LoadInt32(&attemptCount), "should not attempt request when body too large")
+	})
+
+	t.Run("request body at max buffer size succeeds", func(t *testing.T) {
+		var attemptCount int32
+		bodyContent := strings.Repeat("x", 512) // exactly 512 bytes
+
+		customReader := io.NopCloser(strings.NewReader(bodyContent))
+
+		rmock := &mocks.RoundTripper{RoundTripFunc: func(r *http.Request) (*http.Response, error) {
+			count := atomic.AddInt32(&attemptCount, 1)
+
+			// verify body is available on all attempts
+			bodyBytes, err := io.ReadAll(r.Body)
+			require.NoError(t, err)
+			assert.Equal(t, bodyContent, string(bodyBytes))
+
+			if count < 2 {
+				return &http.Response{StatusCode: 503}, nil
+			}
+			return &http.Response{StatusCode: 200}, nil
+		}}
+
+		h := Retry(3, time.Millisecond, RetryBufferBodies(true), RetryMaxBufferSize(512))(rmock)
+		req, err := http.NewRequest("POST", "http://example.com/", customReader)
+		require.NoError(t, err)
+
+		resp, err := h.RoundTrip(req)
+		require.NoError(t, err)
+		assert.Equal(t, 200, resp.StatusCode)
+		assert.Equal(t, int32(2), atomic.LoadInt32(&attemptCount))
 	})
 }
 

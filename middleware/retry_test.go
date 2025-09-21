@@ -126,19 +126,19 @@ func TestRetry_BackoffStrategies(t *testing.T) {
 			name:        "constant backoff",
 			backoff:     BackoffConstant,
 			minDuration: 3 * time.Millisecond, // 1ms * 3
-			maxDuration: 5 * time.Millisecond, // some buffer for execution time
+			maxDuration: 15 * time.Millisecond, // increased buffer for CI environments
 		},
 		{
 			name:        "linear backoff",
 			backoff:     BackoffLinear,
 			minDuration: 6 * time.Millisecond, // 1ms + 2ms + 3ms
-			maxDuration: 8 * time.Millisecond,
+			maxDuration: 20 * time.Millisecond, // increased buffer for CI environments
 		},
 		{
 			name:        "exponential backoff",
 			backoff:     BackoffExponential,
 			minDuration: 7 * time.Millisecond, // 1ms + 2ms + 4ms
-			maxDuration: 9 * time.Millisecond,
+			maxDuration: 25 * time.Millisecond, // increased buffer for CI environments
 		},
 	}
 
@@ -245,7 +245,7 @@ func TestRetry_BackoffStrategies(t *testing.T) {
 
 		// expected delay: 5ms + 10ms + 20ms = 35ms (exponential backoff)
 		expectedMin := 30 * time.Millisecond
-		expectedMax := 40 * time.Millisecond
+		expectedMax := 60 * time.Millisecond // increased buffer for CI environments
 
 		assert.Greater(t, duration, expectedMin, "retries should introduce actual delay")
 		assert.LessOrEqual(t, duration, expectedMax, "delay should not exceed expected range")

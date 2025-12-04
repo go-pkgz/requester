@@ -11,7 +11,7 @@ import (
 	"time"
 
 	"github.com/go-pkgz/lcw"
-	"github.com/go-pkgz/repeater"
+	"github.com/go-pkgz/repeater/v2"
 
 	"github.com/go-pkgz/requester"
 	"github.com/go-pkgz/requester/middleware"
@@ -204,7 +204,7 @@ func requestWithLimitConcurrency(ts *httptest.Server) {
 func requestWithRepeater(ts *httptest.Server) {
 	log.Printf("requestWithRepeater --------------")
 
-	rpt := repeater.NewDefault(10, 500*time.Millisecond) // make a repeater with up to 10 calls, 500ms between calls
+	rpt := repeater.NewFixed(10, 500*time.Millisecond) // make a repeater with up to 10 calls, 500ms between calls
 	rq := requester.New(http.Client{},
 		// repeat failed call up to 10 times with 500ms delay on networking error or given status codes
 		middleware.Repeater(rpt, http.StatusInternalServerError, http.StatusBadGateway),

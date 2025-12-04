@@ -2,7 +2,7 @@ package main
 
 import (
 	"log"
-	"math/rand"
+	"math/rand/v2"
 	"net/http"
 	"net/http/httptest"
 	"strconv"
@@ -50,7 +50,7 @@ func requestWithHeaders(ts *httptest.Server) {
 	)
 
 	// create http.Request
-	req, err := http.NewRequest("GET", ts.URL+"/blah", nil)
+	req, err := http.NewRequest("GET", ts.URL+"/blah", http.NoBody)
 	if err != nil {
 		panic(err)
 	}
@@ -85,7 +85,7 @@ func requestWithLogging(ts *httptest.Server) {
 	)
 
 	// create http.Request
-	req, err := http.NewRequest("GET", ts.URL+"/blah", nil)
+	req, err := http.NewRequest("GET", ts.URL+"/blah", http.NoBody)
 	if err != nil {
 		panic(err)
 	}
@@ -117,7 +117,7 @@ func requestWithCache(ts *httptest.Server) {
 	)
 
 	// create http.Request
-	req, err := http.NewRequest("GET", ts.URL+"/blah", nil)
+	req, err := http.NewRequest("GET", ts.URL+"/blah", http.NoBody)
 	if err != nil {
 		panic(err)
 	}
@@ -129,7 +129,7 @@ func requestWithCache(ts *httptest.Server) {
 	log.Printf("status1: %s", resp.Status)
 
 	// make another call for cached resource, will be fast as result cached
-	req2, err := http.NewRequest("GET", ts.URL+"/blah", nil)
+	req2, err := http.NewRequest("GET", ts.URL+"/blah", http.NoBody)
 	if err != nil {
 		panic(err)
 	}
@@ -160,7 +160,7 @@ func requestWithCustom(ts *httptest.Server) {
 	)
 
 	// create http.Request
-	req, err := http.NewRequest("GET", ts.URL+"/blah", nil)
+	req, err := http.NewRequest("GET", ts.URL+"/blah", http.NoBody)
 	if err != nil {
 		panic(err)
 	}
@@ -173,7 +173,7 @@ func requestWithCustom(ts *httptest.Server) {
 	log.Printf("status: %s", resp.Status)
 }
 
-var inFly int32
+var inFly int32 //nolint:gochecknoglobals // used for demo purposes
 
 // requestWithLimitConcurrency example of concurrency limiter
 func requestWithLimitConcurrency(ts *httptest.Server) {
@@ -193,7 +193,7 @@ func requestWithLimitConcurrency(ts *httptest.Server) {
 	for i := 0; i < 32; i++ {
 		go func(i int) {
 			defer wg.Done()
-			client.Get(ts.URL + "/blah" + strconv.Itoa(i))
+			_, _ = client.Get(ts.URL + "/blah" + strconv.Itoa(i))
 			log.Printf("completed: %d, in fly:%d", i, atomic.LoadInt32(&inFly))
 		}(i)
 	}
@@ -212,7 +212,7 @@ func requestWithRepeater(ts *httptest.Server) {
 	)
 
 	// create http.Request
-	req, err := http.NewRequest("GET", ts.URL+"/blah", nil)
+	req, err := http.NewRequest("GET", ts.URL+"/blah", http.NoBody)
 	if err != nil {
 		panic(err)
 	}
@@ -228,9 +228,9 @@ func startTestServer() *httptest.Server {
 	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		c := atomic.AddInt32(&inFly, 1)
 		log.Printf("request: %+v (%d)", r, c)
-		time.Sleep(time.Duration(rand.Intn(100)) * time.Millisecond) // simulate random network latency
+		time.Sleep(time.Duration(rand.IntN(100)) * time.Millisecond) //nolint:gosec // simulate random network latency
 		w.Header().Set("k1", "v1")
-		w.Write([]byte("something"))
+		_, _ = w.Write([]byte("something"))
 		atomic.AddInt32(&inFly, -1)
 	}))
 }
@@ -240,7 +240,7 @@ func startTestServerFailedFirst() *httptest.Server {
 	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		c := atomic.AddInt32(&inFly, 1)
 		log.Printf("request: %+v (%d)", r, c)
-		time.Sleep(time.Duration(rand.Intn(100)) * time.Millisecond) // simulate random network latency
+		time.Sleep(time.Duration(rand.IntN(100)) * time.Millisecond) //nolint:gosec // simulate random network latency
 
 		if atomic.AddInt32(&n, 1) < 5 { // fail 5 first requests
 			w.WriteHeader(http.StatusInternalServerError)
@@ -248,7 +248,7 @@ func startTestServerFailedFirst() *httptest.Server {
 		}
 
 		w.Header().Set("k1", "v1")
-		w.Write([]byte("something"))
+		_, _ = w.Write([]byte("something"))
 		atomic.AddInt32(&inFly, -1)
 	}))
 }

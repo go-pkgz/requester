@@ -17,23 +17,34 @@ jobs:
       - name: set up go
         uses: actions/setup-go@v5
         with:
-          go-version: "1.21"
+          go-version: "1.23"
         id: go
 
       - name: build and test
         run: |
-          go get -v
           go test -timeout=60s -covermode=count -coverprofile=$GITHUB_WORKSPACE/profile.cov_tmp ./...
           cat $GITHUB_WORKSPACE/profile.cov_tmp | grep -v "_mock.go" | grep -v "mocks" > $GITHUB_WORKSPACE/profile.cov
           go build -race
         env:
-          GO111MODULE: "on"
+          TZ: "America/Chicago"
+
+      - name: build example
+        working-directory: _example
+        run: |
+          go build -race
+        env:
           TZ: "America/Chicago"
 
       - name: golangci-lint
         uses: golangci/golangci-lint-action@v7
         with:
           version: v2.6
+
+      - name: golangci-lint example
+        uses: golangci/golangci-lint-action@v7
+        with:
+          version: v2.6
+          working-directory: _example
 
       - name: install goveralls
         run: go install github.com/mattn/goveralls@latest

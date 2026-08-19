@@ -178,7 +178,7 @@ func TestRequester_WithNoSharedBackingArray(t *testing.T) {
 	}
 
 	t.Run("derived requesters keep own middlewares", func(t *testing.T) {
-		// spare capacity in the parent chain used to let the second With overwrite the first one's middleware
+		// with spare capacity in the parent chain, a shared backing array would let the second With overwrite the first
 		base := New(http.Client{Timeout: time.Second}, tag("a"))
 		base.Use(tag("b"))
 		base.Use(tag("c"))

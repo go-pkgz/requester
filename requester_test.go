@@ -143,6 +143,81 @@ func TestRequester_With(t *testing.T) {
 	assert.Equal(t, 200, resp.StatusCode)
 }
 
+func TestRequester_WithNoSharedBackingArray(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		user, _, _ := r.BasicAuth()
+		_, err := w.Write([]byte(user + "|" + strings.Join(r.Header.Values("chain"), ",")))
+		assert.NoError(t, err)
+	}))
+	defer ts.Close()
+
+	// tag middleware appends its name to the chain header, so every applied middleware stays visible
+	tag := func(name string) middleware.RoundTripperHandler {
+		return func(next http.RoundTripper) http.RoundTripper {
+			return middleware.RoundTripperFunc(func(r *http.Request) (*http.Response, error) {
+				r.Header.Add("chain", name)
+				return next.RoundTrip(r)
+			})
+		}
+	}
+
+	call := func(t *testing.T, rq *Requester) (user string, chain []string) {
+		t.Helper()
+		req, err := http.NewRequest("GET", ts.URL, http.NoBody)
+		require.NoError(t, err)
+		resp, err := rq.Do(req)
+		require.NoError(t, err)
+		defer resp.Body.Close()
+		body, err := io.ReadAll(resp.Body)
+		require.NoError(t, err)
+		user, tags, _ := strings.Cut(string(body), "|")
+		if tags == "" {
+			return user, nil
+		}
+		return user, strings.Split(tags, ",")
+	}
+
+	t.Run("derived requesters keep own middlewares", func(t *testing.T) {
+		// with spare capacity in the parent chain, a shared backing array would let the second With overwrite the first
+		base := New(http.Client{Timeout: time.Second}, tag("a"))
+		base.Use(tag("b"))
+		base.Use(tag("c"))
+		require.Greater(t, cap(base.middlewares), len(base.middlewares), "parent chain needs spare capacity")
+
+		first := base.With(middleware.BasicAuth("first", "p1"))
+		second := base.With(middleware.BasicAuth("second", "p2"))
+
+		user, _ := call(t, first)
+		assert.Equal(t, "first", user)
+		user, _ = call(t, second)
+		assert.Equal(t, "second", user)
+	})
+
+	t.Run("parent unaffected by derived requester", func(t *testing.T) {
+		base := New(http.Client{Timeout: time.Second}, tag("base"))
+		derived := base.With(tag("derived"))
+
+		_, chain := call(t, derived)
+		assert.ElementsMatch(t, []string{"base", "derived"}, chain)
+		_, chain = call(t, base)
+		assert.Equal(t, []string{"base"}, chain)
+	})
+
+	t.Run("caller slice not modified by Use", func(t *testing.T) {
+		handlers := make([]middleware.RoundTripperHandler, 1, 2)
+		handlers[0] = tag("caller")
+		rq := New(http.Client{Timeout: time.Second}, handlers...)
+		rq.Use(tag("added"))
+
+		_, chain := call(t, rq)
+		assert.ElementsMatch(t, []string{"caller", "added"}, chain)
+
+		// Use wrote into the requester's own copy, the caller's spare capacity stays untouched
+		spare := handlers[:cap(handlers)]
+		assert.Nil(t, spare[1], "Use must not write into the caller's backing array")
+	})
+}
+
 func TestRequester_Client(t *testing.T) {
 	mw := func(next http.RoundTripper) http.RoundTripper {
 		fn := func(req *http.Request) (*http.Response, error) {

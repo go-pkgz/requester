@@ -243,6 +243,129 @@ func TestCache_Keys(t *testing.T) {
 		assert.Equal(t, int32(2), atomic.LoadInt32(&requestCount))
 	})
 
+	t.Run("different Host with the same URL gets different cache entries", func(t *testing.T) {
+		var requestCount int32
+		rmock := &mocks.RoundTripper{RoundTripFunc: func(r *http.Request) (*http.Response, error) {
+			atomic.AddInt32(&requestCount, 1)
+			return &http.Response{
+				StatusCode: 200,
+				Body:       io.NopCloser(strings.NewReader(r.Host)),
+			}, nil
+		}}
+
+		h := Cache()(rmock)
+
+		get := func(t *testing.T, host string) string {
+			t.Helper()
+			req, err := http.NewRequest(http.MethodGet, "http://example.com/", http.NoBody)
+			require.NoError(t, err)
+			req.Host = host
+			resp, err := h.RoundTrip(req)
+			require.NoError(t, err)
+			defer resp.Body.Close()
+			body, err := io.ReadAll(resp.Body)
+			require.NoError(t, err)
+			return string(body)
+		}
+
+		assert.Equal(t, "victim.example", get(t, "victim.example"))
+		assert.Equal(t, "attacker.example", get(t, "attacker.example"))
+		assert.Equal(t, int32(2), atomic.LoadInt32(&requestCount))
+
+		// repeated request with the same Host is served from cache
+		assert.Equal(t, "victim.example", get(t, "victim.example"))
+		assert.Equal(t, int32(2), atomic.LoadInt32(&requestCount))
+	})
+
+	t.Run("Host matching the URL host shares the cache entry", func(t *testing.T) {
+		var requestCount int32
+		rmock := &mocks.RoundTripper{RoundTripFunc: func(r *http.Request) (*http.Response, error) {
+			atomic.AddInt32(&requestCount, 1)
+			return &http.Response{StatusCode: 200, Body: io.NopCloser(strings.NewReader("body"))}, nil
+		}}
+
+		h := Cache()(rmock)
+
+		req1, err := http.NewRequest(http.MethodGet, "http://example.com/", http.NoBody)
+		require.NoError(t, err)
+		resp1, err := h.RoundTrip(req1)
+		require.NoError(t, err)
+		require.NoError(t, resp1.Body.Close())
+
+		req2, err := http.NewRequest(http.MethodGet, "http://example.com/", http.NoBody)
+		require.NoError(t, err)
+		req2.Host = "example.com"
+		resp2, err := h.RoundTrip(req2)
+		require.NoError(t, err)
+		require.NoError(t, resp2.Body.Close())
+
+		assert.Equal(t, int32(1), atomic.LoadInt32(&requestCount))
+	})
+
+	t.Run("empty Host falls back to the URL host", func(t *testing.T) {
+		var requestCount int32
+		rmock := &mocks.RoundTripper{RoundTripFunc: func(_ *http.Request) (*http.Response, error) {
+			atomic.AddInt32(&requestCount, 1)
+			return &http.Response{StatusCode: 200, Body: io.NopCloser(strings.NewReader("body"))}, nil
+		}}
+
+		h := Cache()(rmock)
+
+		req1, err := http.NewRequest(http.MethodGet, "http://example.com/", http.NoBody)
+		require.NoError(t, err)
+		req1.Host = "" // http.NewRequest fills Host from the URL, clear it to get the fallback
+		resp1, err := h.RoundTrip(req1)
+		require.NoError(t, err)
+		require.NoError(t, resp1.Body.Close())
+
+		req2, err := http.NewRequest(http.MethodGet, "http://example.com/", http.NoBody)
+		require.NoError(t, err)
+		require.Equal(t, "example.com", req2.Host)
+		resp2, err := h.RoundTrip(req2)
+		require.NoError(t, err)
+		require.NoError(t, resp2.Body.Close())
+
+		assert.Equal(t, int32(1), atomic.LoadInt32(&requestCount))
+	})
+
+	t.Run("header value can not impersonate another header", func(t *testing.T) {
+		var requestCount int32
+		rmock := &mocks.RoundTripper{RoundTripFunc: func(_ *http.Request) (*http.Response, error) {
+			atomic.AddInt32(&requestCount, 1)
+			return &http.Response{StatusCode: 200, Body: io.NopCloser(strings.NewReader("body"))}, nil
+		}}
+
+		h := Cache(CacheWithHeaders("X-A", "X-B"))(rmock)
+
+		// a crafted header value must not produce the key of the two separate headers below
+		req1, err := http.NewRequest(http.MethodGet, "http://example.com/", http.NoBody)
+		require.NoError(t, err)
+		req1.Header.Set("X-A", "1||X-B:2")
+		resp1, err := h.RoundTrip(req1)
+		require.NoError(t, err)
+		require.NoError(t, resp1.Body.Close())
+
+		req2, err := http.NewRequest(http.MethodGet, "http://example.com/", http.NoBody)
+		require.NoError(t, err)
+		req2.Header.Set("X-A", "1")
+		req2.Header.Set("X-B", "2")
+		resp2, err := h.RoundTrip(req2)
+		require.NoError(t, err)
+		require.NoError(t, resp2.Body.Close())
+
+		// a multi-valued header must not produce the key of the two separate headers either
+		req3, err := http.NewRequest(http.MethodGet, "http://example.com/", http.NoBody)
+		require.NoError(t, err)
+		req3.Header.Add("X-A", "1")
+		req3.Header.Add("X-A", "X-B")
+		req3.Header.Add("X-A", "2")
+		resp3, err := h.RoundTrip(req3)
+		require.NoError(t, err)
+		require.NoError(t, resp3.Body.Close())
+
+		assert.Equal(t, int32(3), atomic.LoadInt32(&requestCount))
+	})
+
 	t.Run("includes headers in cache key when configured", func(t *testing.T) {
 		var requestCount int32
 		rmock := &mocks.RoundTripper{RoundTripFunc: func(r *http.Request) (*http.Response, error) {

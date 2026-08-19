@@ -222,8 +222,7 @@ func TestHeader_Redirects(t *testing.T) {
 			}}
 
 			req := chain(t, tt.urls...)
-			// the client copies non-sensitive headers to the next hop, the middleware's own value must not survive it
-			req.Header.Set("Authorization", "Basic dXNlcjpwYXNzd2Q=")
+			// the client copies headers it doesn't treat as credentials to the next hop, X-Auth among them
 			req.Header.Set("X-Auth", "secret")
 
 			h := BasicAuth("user", "passwd")(SecretHeader("X-Auth", "secret")(Header("X-Trace", "t1")(rmock)))
@@ -248,17 +247,20 @@ func TestHeader_Redirects(t *testing.T) {
 			return &http.Response{StatusCode: 200}, nil
 		}}
 
+		// the client copies no credential header to a host outside of the original one, so these belong to the
+		// destination, put in by a CheckRedirect hook or by the cookie jar, values equal to the configured ones
+		// included
 		req := chain(t, "http://example.com/a", "http://attacker.com/b")
-		req.Header.Set("Authorization", "Basic dXNlcjpwYXNzd2Q=") // the middleware's own value
+		req.Header.Set("Authorization", "Basic dXNlcjpwYXNzd2Q=")
 		req.Header.Add("Authorization", "Bearer for-the-destination")
-		req.Header.Set("Cookie", "set=by-the-jar")
+		req.Header.Set("Cookie", "set=by-the-middleware")
 
 		h := BasicAuth("user", "passwd")(SecretHeader("Cookie", "set=by-the-middleware")(rmock))
 		_, err := h.RoundTrip(req)
 		require.NoError(t, err)
 
-		assert.Equal(t, []string{"Bearer for-the-destination"}, got.Values("Authorization"))
-		assert.Equal(t, []string{"set=by-the-jar"}, got.Values("Cookie"))
+		assert.Equal(t, []string{"Basic dXNlcjpwYXNzd2Q=", "Bearer for-the-destination"}, got.Values("Authorization"))
+		assert.Equal(t, []string{"set=by-the-middleware"}, got.Values("Cookie"))
 	})
 
 	t.Run("caller value of a secret header dropped on another host", func(t *testing.T) {
@@ -275,6 +277,29 @@ func TestHeader_Redirects(t *testing.T) {
 		_, err := SecretHeader("X-Auth", "set-by-the-middleware")(rmock).RoundTrip(req)
 		require.NoError(t, err)
 		assert.Empty(t, got.Values("X-Auth"))
+	})
+
+	t.Run("transport leaving the request out of the response", func(t *testing.T) {
+		var got http.Header
+		base := RoundTripperFunc(func(r *http.Request) (*http.Response, error) {
+			if r.URL.Path == "/a" { // the response carries no Request, as a custom transport may leave it
+				return &http.Response{
+					StatusCode: http.StatusFound,
+					Header:     http.Header{"Location": []string{"http://example.com/b"}},
+					Body:       io.NopCloser(strings.NewReader("")),
+				}, nil
+			}
+			got = r.Header.Clone()
+			return &http.Response{StatusCode: 200, Body: io.NopCloser(strings.NewReader(""))}, nil
+		})
+
+		client := http.Client{Transport: BasicAuth("user", "passwd")(base)}
+		resp, err := client.Get("http://example.com/a")
+		require.NoError(t, err)
+		require.NoError(t, resp.Body.Close())
+
+		// the middleware filled the request in on the way back, so the origin of the second hop is known
+		assert.Equal(t, "Basic dXNlcjpwYXNzd2Q=", got.Get("Authorization"))
 	})
 
 	t.Run("redirect with unknown origin", func(t *testing.T) {

@@ -13,7 +13,7 @@ import (
 func TestCircuitBreaker(t *testing.T) {
 
 	cbMock := &mocks.CircuitBreakerSvcMock{
-		ExecuteFunc: func(req func() (interface{}, error)) (interface{}, error) {
+		ExecuteFunc: func(req func() (any, error)) (any, error) {
 			return req()
 		},
 	}

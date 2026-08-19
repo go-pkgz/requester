@@ -190,7 +190,7 @@ func requestWithLimitConcurrency(ts *httptest.Server) {
 	// a test checking if concurrent requests limited to 4
 	var wg sync.WaitGroup
 	wg.Add(32)
-	for i := 0; i < 32; i++ {
+	for i := range 32 {
 		go func(i int) {
 			defer wg.Done()
 			_, _ = client.Get(ts.URL + "/blah" + strconv.Itoa(i))

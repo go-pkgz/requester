@@ -345,7 +345,7 @@ func TestRequester_TransportHandling(t *testing.T) {
 		client := http.Client{Transport: customTransport}
 		rq := New(client)
 
-		for i := 0; i < 3; i++ {
+		for range 3 {
 			req, err := http.NewRequest(http.MethodGet, baseURL, http.NoBody)
 			require.NoError(t, err)
 			resp, err := rq.Do(req)

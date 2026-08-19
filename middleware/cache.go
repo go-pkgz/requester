@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"slices"
 	"sort"
 	"strings"
 	"sync"
@@ -38,13 +39,7 @@ type CacheMiddleware struct {
 // RoundTrip implements http.RoundTripper
 func (c *CacheMiddleware) RoundTrip(req *http.Request) (*http.Response, error) {
 	// check if method is allowed
-	methodAllowed := false
-	for _, m := range c.allowedMethods {
-		if req.Method == m {
-			methodAllowed = true
-			break
-		}
-	}
+	methodAllowed := slices.Contains(c.allowedMethods, req.Method)
 	if !methodAllowed {
 		resp, err := c.next.RoundTrip(req)
 		if err != nil {
@@ -168,12 +163,7 @@ func (c *CacheMiddleware) makeKey(req *http.Request) string {
 }
 
 func (c *CacheMiddleware) shouldCache(code int) bool {
-	for _, allowed := range c.allowedCodes {
-		if code == allowed {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(c.allowedCodes, code)
 }
 
 // Cache creates caching middleware with provided options

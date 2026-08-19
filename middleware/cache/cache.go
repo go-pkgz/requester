@@ -37,14 +37,14 @@ const maxBodySize = 1024 * 16
 
 // Service defines loading cache interface to be used for caching, matching github.com/go-pkgz/lcw interface
 type Service interface {
-	Get(key string, fn func() (interface{}, error)) (interface{}, error)
+	Get(key string, fn func() (any, error)) (any, error)
 }
 
 // ServiceFunc is an adapter to allow the use of an ordinary functions as the loading cache.
-type ServiceFunc func(key string, fn func() (interface{}, error)) (interface{}, error)
+type ServiceFunc func(key string, fn func() (any, error)) (any, error)
 
 // Get and/or fill the cached value for a given keyDbg
-func (c ServiceFunc) Get(key string, fn func() (interface{}, error)) (interface{}, error) {
+func (c ServiceFunc) Get(key string, fn func() (any, error)) (any, error) {
 	return c(key, fn)
 }
 
@@ -73,7 +73,7 @@ func (m *Middleware) Middleware(next http.RoundTripper) http.RoundTripper {
 			return nil, fmt.Errorf("cache key: %w", e)
 		}
 
-		cachedResp, e := m.Get(key, func() (interface{}, error) {
+		cachedResp, e := m.Get(key, func() (any, error) {
 			resp, err = next.RoundTrip(req)
 			if err != nil {
 				return nil, fmt.Errorf("cache: transport error: %w", err)

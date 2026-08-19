@@ -36,7 +36,7 @@ func TestMaxConcurrentHandler(t *testing.T) {
 	h := MaxConcurrent(8)
 
 	var wg sync.WaitGroup
-	for i := 0; i < 100; i++ {
+	for range 100 {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
@@ -73,7 +73,7 @@ func TestMaxConcurrent_Advanced(t *testing.T) {
 		defer cancel()
 
 		var wg sync.WaitGroup
-		for i := 0; i < 5; i++ {
+		for range 5 {
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
@@ -128,7 +128,7 @@ func TestMaxConcurrent_Advanced(t *testing.T) {
 		wrapped := h(rmock)
 
 		var wg sync.WaitGroup
-		for i := 0; i < 100; i++ {
+		for range 100 {
 			wg.Add(1)
 			go func() {
 				defer wg.Done()

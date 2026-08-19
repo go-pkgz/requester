@@ -17,7 +17,7 @@ import (
 func TestMiddleware_Handle(t *testing.T) {
 	outBuf := bytes.NewBuffer(nil)
 	loggerMock := &mocks.LoggerSvc{
-		LogfFunc: func(format string, args ...interface{}) {
+		LogfFunc: func(format string, args ...any) {
 			_, _ = fmt.Fprintf(outBuf, format, args...)
 		},
 	}
@@ -47,7 +47,7 @@ func TestMiddleware_Handle(t *testing.T) {
 func TestMiddleware_HandleWithOptions(t *testing.T) {
 	outBuf := bytes.NewBuffer(nil)
 	loggerMock := &mocks.LoggerSvc{
-		LogfFunc: func(format string, args ...interface{}) {
+		LogfFunc: func(format string, args ...any) {
 			_, _ = fmt.Fprintf(outBuf, format, args...)
 		},
 	}
@@ -80,7 +80,7 @@ func TestLogger_EdgeCases(t *testing.T) {
 	t.Run("non-standard headers", func(t *testing.T) {
 		outBuf := bytes.NewBuffer(nil)
 		loggerMock := &mocks.LoggerSvc{
-			LogfFunc: func(format string, args ...interface{}) {
+			LogfFunc: func(format string, args ...any) {
 				_, _ = fmt.Fprintf(outBuf, format, args...)
 			},
 		}
@@ -117,7 +117,7 @@ func TestLogger_EdgeCases(t *testing.T) {
 	t.Run("prefix handling", func(t *testing.T) {
 		outBuf := bytes.NewBuffer(nil)
 		loggerMock := &mocks.LoggerSvc{
-			LogfFunc: func(format string, args ...interface{}) {
+			LogfFunc: func(format string, args ...any) {
 				_, _ = fmt.Fprintf(outBuf, format, args...)
 			},
 		}
@@ -140,7 +140,7 @@ func TestLogger_EdgeCases(t *testing.T) {
 	t.Run("large body truncation", func(t *testing.T) {
 		outBuf := bytes.NewBuffer(nil)
 		loggerMock := &mocks.LoggerSvc{
-			LogfFunc: func(format string, args ...interface{}) {
+			LogfFunc: func(format string, args ...any) {
 				_, _ = fmt.Fprintf(outBuf, format, args...)
 			},
 		}
@@ -169,7 +169,7 @@ func TestLogger_EdgeCases(t *testing.T) {
 	t.Run("multiline body", func(t *testing.T) {
 		outBuf := bytes.NewBuffer(nil)
 		loggerMock := &mocks.LoggerSvc{
-			LogfFunc: func(format string, args ...interface{}) {
+			LogfFunc: func(format string, args ...any) {
 				_, _ = fmt.Fprintf(outBuf, format, args...)
 			},
 		}

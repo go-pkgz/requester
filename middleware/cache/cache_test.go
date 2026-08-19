@@ -118,7 +118,7 @@ func Test_extractCacheKey(t *testing.T) {
 }
 
 func TestMiddleware_Handle(t *testing.T) {
-	cacheMock := mocks.CacheSvc{GetFunc: func(_ string, fn func() (interface{}, error)) (interface{}, error) {
+	cacheMock := mocks.CacheSvc{GetFunc: func(_ string, fn func() (any, error)) (any, error) {
 		return fn()
 	}}
 	c := New(&cacheMock)
@@ -160,7 +160,7 @@ func TestMiddleware_Handle(t *testing.T) {
 }
 
 func TestMiddleware_HandleMethodDisabled(t *testing.T) {
-	cacheMock := mocks.CacheSvc{GetFunc: func(_ string, fn func() (interface{}, error)) (interface{}, error) {
+	cacheMock := mocks.CacheSvc{GetFunc: func(_ string, fn func() (any, error)) (any, error) {
 		return fn()
 	}}
 	c := New(&cacheMock, Methods("PUT"))

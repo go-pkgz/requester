@@ -26,6 +26,11 @@ func Test_extractCacheKey(t *testing.T) {
 		return res
 	}
 
+	withHost := func(r *http.Request, host string) *http.Request {
+		r.Host = host
+		return r
+	}
+
 	tbl := []struct {
 		req     *http.Request
 		opts    []func(m *Middleware)
@@ -35,50 +40,50 @@ func Test_extractCacheKey(t *testing.T) {
 		{
 			req:     makeReq("GET", "http://example.com/1/2?k1=v1&k2=v2", nil, nil),
 			opts:    []func(m *Middleware){},
-			keyDbg:  "http://example.com/1/2?k1=v1&k2=v2##GET####",
-			keyHash: "e847b72f947c83d096d71433f6d53202c148242d54150dc275e547f023ff3d5e",
+			keyDbg:  "34:http://example.com/1/2?k1=v1&k2=v2##11:example.com##3:GET##0:##0:",
+			keyHash: "b8850f76501e16a373f5b09ac8114d3aa4e7eb8a8ee661a69afaf31fb8fc5ae9",
 		},
 		{
 			req: makeReq("GET", "http://example.com/1/2?k1=v1&k2=v2", nil,
 				http.Header{"keyDbg": []string{"val1", "val2"}, "k2": []string{"v22"}}),
 			opts:    []func(m *Middleware){KeyWithHeaders},
-			keyDbg:  "http://example.com/1/2?k1=v1&k2=v2##GET##k2:v22$$keyDbg:val1%%val2##",
-			keyHash: "7770dca95a1fe3a1dd5719dcc376e2dfa9f64a6c77729c8c98120db5d3ddf6ce",
+			keyDbg:  "34:http://example.com/1/2?k1=v1&k2=v2##11:example.com##3:GET##34:20:6:keyDbg4:val14:val29:2:k23:v22##0:",
+			keyHash: "43cd56baf61e3473a41f14a8da6ec38bd756c4113b9488e7ce30ec2d6e1c7d9f",
 		},
 		{
 			req: makeReq("GET", "http://example.com/1/2?k1=v1&k2=v2", nil,
 				http.Header{"keyDbg": []string{"val1", "val2"}, "k2": []string{"v22"}}),
 			opts:    []func(m *Middleware){KeyWithHeadersIncluded("k2")},
-			keyDbg:  "http://example.com/1/2?k1=v1&k2=v2##GET##k2:v22##",
-			keyHash: "96cdeaac00f84d5e80b9f8e57dceab324ee8d27e44f379c5150f315ba5a61dfb",
+			keyDbg:  "34:http://example.com/1/2?k1=v1&k2=v2##11:example.com##3:GET##11:9:2:k23:v22##0:",
+			keyHash: "e2232d5e2d796f7a4e08b6147f81b1052c49cbf6ef2aacb1f4c2373393ad6a86",
 		},
 		{
 			req: makeReq("GET", "http://example.com/1/2?k1=v1&k2=v2", nil,
 				http.Header{"keyDbg": []string{"val1", "val2"}, "k2": []string{"v22"}}),
 			opts:    []func(m *Middleware){KeyWithHeadersExcluded("k2")},
-			keyDbg:  "http://example.com/1/2?k1=v1&k2=v2##GET##keyDbg:val1%%val2##",
-			keyHash: "7df35feb246b3cc39d15f2b86825dab6587044e017db5284613ce55b3d30dad5",
+			keyDbg:  "34:http://example.com/1/2?k1=v1&k2=v2##11:example.com##3:GET##23:20:6:keyDbg4:val14:val2##0:",
+			keyHash: "6405827711ad3b35a9be9127b96b46a424180f64c1f1268d86929ad5939c3533",
 		},
 		{
 			req: makeReq("GET", "http://example.com/1/2?k1=v1&k2=v2", nil,
 				http.Header{"keyDbg": []string{"val1", "val2"}, "k2": []string{"v22"}}),
 			opts:    []func(m *Middleware){KeyWithHeadersExcluded("xyz", "abc")},
-			keyDbg:  "http://example.com/1/2?k1=v1&k2=v2##GET##k2:v22$$keyDbg:val1%%val2##",
-			keyHash: "7770dca95a1fe3a1dd5719dcc376e2dfa9f64a6c77729c8c98120db5d3ddf6ce",
+			keyDbg:  "34:http://example.com/1/2?k1=v1&k2=v2##11:example.com##3:GET##34:20:6:keyDbg4:val14:val29:2:k23:v22##0:",
+			keyHash: "43cd56baf61e3473a41f14a8da6ec38bd756c4113b9488e7ce30ec2d6e1c7d9f",
 		},
 		{
 			req: makeReq("GET", "http://example.com/1/2?k1=v1&k2=v2", bytes.NewBufferString("something"),
 				http.Header{"keyDbg": []string{"val1", "val2"}, "k2": []string{"v22"}}),
 			opts:    []func(m *Middleware){KeyWithHeadersExcluded("xyz", "abc")},
-			keyDbg:  "http://example.com/1/2?k1=v1&k2=v2##GET##k2:v22$$keyDbg:val1%%val2##",
-			keyHash: "7770dca95a1fe3a1dd5719dcc376e2dfa9f64a6c77729c8c98120db5d3ddf6ce",
+			keyDbg:  "34:http://example.com/1/2?k1=v1&k2=v2##11:example.com##3:GET##34:20:6:keyDbg4:val14:val29:2:k23:v22##0:",
+			keyHash: "43cd56baf61e3473a41f14a8da6ec38bd756c4113b9488e7ce30ec2d6e1c7d9f",
 		},
 		{
 			req: makeReq("GET", "http://example.com/1/2?k1=v1&k2=v2", bytes.NewBufferString("something"),
 				http.Header{"keyDbg": []string{"val1", "val2"}, "k2": []string{"v22"}}),
 			opts:    []func(m *Middleware){KeyWithHeadersExcluded("xyz", "abc"), KeyWithBody},
-			keyDbg:  "http://example.com/1/2?k1=v1&k2=v2##GET##k2:v22$$keyDbg:val1%%val2##something",
-			keyHash: "c77208b375a9df49e97920b5621c9ac8e733a13ab6c74abcef7bc4f052af8d38",
+			keyDbg:  "34:http://example.com/1/2?k1=v1&k2=v2##11:example.com##3:GET##34:20:6:keyDbg4:val14:val29:2:k23:v22##9:something",
+			keyHash: "680b407586552fb94994bb00ed5915181f7473f39243aab8828f85deacb7ec15",
 		},
 		{
 			req: makeReq("GET", "http://example.com/1/2?k1=v1&k2=v2", nil, nil),
@@ -95,6 +100,45 @@ func Test_extractCacheKey(t *testing.T) {
 			})},
 			keyDbg:  "/1/2",
 			keyHash: "c385023fa5c9b3d71679c9557649b476784a44c2f1f71b6d46a5a65694f688a0",
+		},
+		{ // empty Host falls back to the URL host
+			req:     withHost(makeReq("GET", "http://example.com/1/2?k1=v1&k2=v2", nil, nil), ""),
+			opts:    []func(m *Middleware){},
+			keyDbg:  "34:http://example.com/1/2?k1=v1&k2=v2##11:example.com##3:GET##0:##0:",
+			keyHash: "b8850f76501e16a373f5b09ac8114d3aa4e7eb8a8ee661a69afaf31fb8fc5ae9",
+		},
+		{ // a crafted header value must not produce the key of the two separate headers below
+			req: makeReq("GET", "http://example.com/1/2?k1=v1&k2=v2", nil,
+				http.Header{"k1": []string{"v1$$k2:v2"}}),
+			opts:    []func(m *Middleware){KeyWithHeaders},
+			keyDbg:  "34:http://example.com/1/2?k1=v1&k2=v2##11:example.com##3:GET##18:15:2:k19:v1$$k2:v2##0:",
+			keyHash: "060b3132211c60c51582a695c02248f35cdaec780c9c1c2099c752b620285410",
+		},
+		{
+			req: makeReq("GET", "http://example.com/1/2?k1=v1&k2=v2", nil,
+				http.Header{"k1": []string{"v1"}, "k2": []string{"v2"}}),
+			opts:    []func(m *Middleware){KeyWithHeaders},
+			keyDbg:  "34:http://example.com/1/2?k1=v1&k2=v2##11:example.com##3:GET##20:8:2:k12:v18:2:k22:v2##0:",
+			keyHash: "997315632a3bdb27d0c0fb3b4741811c372c71e6a043d095cf3faaac6e1f9042",
+		},
+		{ // a multi-valued header must not produce the key of the two separate headers above
+			req: makeReq("GET", "http://example.com/1/2?k1=v1&k2=v2", nil,
+				http.Header{"k1": []string{"v1", "k2", "v2"}}),
+			opts:    []func(m *Middleware){KeyWithHeaders},
+			keyDbg:  "34:http://example.com/1/2?k1=v1&k2=v2##11:example.com##3:GET##19:16:2:k12:v12:k22:v2##0:",
+			keyHash: "fa0c796430e540656c074c9163e0d66738a16c116fd4542d41eab2d19a185851",
+		},
+		{ // Host override makes the key differ from the same URL requested without it
+			req:     withHost(makeReq("GET", "http://example.com/1/2?k1=v1&k2=v2", nil, nil), "other.example.com"),
+			opts:    []func(m *Middleware){},
+			keyDbg:  "34:http://example.com/1/2?k1=v1&k2=v2##17:other.example.com##3:GET##0:##0:",
+			keyHash: "e75b27274cf89580f7428e711360f6a0e0bd305f22f80f0c88be1e794f32df67",
+		},
+		{ // Host repeating the URL host keeps the key of the plain request
+			req:     withHost(makeReq("GET", "http://example.com/1/2?k1=v1&k2=v2", nil, nil), "example.com"),
+			opts:    []func(m *Middleware){},
+			keyDbg:  "34:http://example.com/1/2?k1=v1&k2=v2##11:example.com##3:GET##0:##0:",
+			keyHash: "b8850f76501e16a373f5b09ac8114d3aa4e7eb8a8ee661a69afaf31fb8fc5ae9",
 		},
 	}
 
@@ -143,7 +187,7 @@ func TestMiddleware_Handle(t *testing.T) {
 	assert.Equal(t, "something", string(v))
 	assert.Equal(t, "v1", resp.Header.Get("k1"))
 	assert.Len(t, cacheMock.GetCalls(), 1)
-	assert.Contains(t, cacheMock.GetCalls()[0].Key, "?k=v##GET####")
+	assert.Contains(t, cacheMock.GetCalls()[0].Key, "##"+strconv.Itoa(len(req.URL.Host))+":"+req.URL.Host+"##3:GET##")
 
 	req, err = http.NewRequest("GET", ts.URL+"?k=v", http.NoBody)
 	require.NoError(t, err)
@@ -156,7 +200,7 @@ func TestMiddleware_Handle(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, "something", string(v))
 	assert.Len(t, cacheMock.GetCalls(), 2)
-	assert.Contains(t, cacheMock.GetCalls()[1].Key, "?k=v##GET####")
+	assert.Contains(t, cacheMock.GetCalls()[1].Key, "##"+strconv.Itoa(len(req.URL.Host))+":"+req.URL.Host+"##3:GET##")
 }
 
 func TestMiddleware_HandleMethodDisabled(t *testing.T) {

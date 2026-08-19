@@ -117,18 +117,36 @@ func (m *Middleware) extractCacheKey(req *http.Request) (key string, err error) 
 	if m.keyComponents.headers.enabled && m.keyFunc == nil {
 		var hh []string
 		for k, h := range req.Header {
-			if m.headerAllowed(k) {
-				hh = append(hh, k+":"+strings.Join(h, "%%"))
+			if !m.headerAllowed(k) {
+				continue
 			}
+			var hb strings.Builder
+			fmt.Fprintf(&hb, "%d:%s", len(k), k)
+			for _, v := range h {
+				fmt.Fprintf(&hb, "%d:%s", len(v), v)
+			}
+			// the whole record is length-prefixed too, a multi-valued header can't look like several headers
+			hh = append(hh, fmt.Sprintf("%d:%s", hb.Len(), hb.String()))
 		}
 		sort.Strings(hh)
-		hkey = strings.Join(hh, "$$")
+		hkey = strings.Join(hh, "")
+	}
+
+	// req.Host overrides the URL host on the wire, responses from different virtual hosts must not share an entry
+	host := req.Host
+	if host == "" {
+		host = req.URL.Host
 	}
 
 	if m.keyFunc != nil {
 		key = m.keyFunc(req)
 	} else {
-		key = fmt.Sprintf("%s##%s##%v##%s", req.URL.String(), req.Method, hkey, bkey)
+		// every part goes in as a length-prefixed field, so a value of one part can't be read as another one
+		parts := make([]string, 0, 5)
+		for _, part := range []string{req.URL.String(), host, req.Method, hkey, bkey} {
+			parts = append(parts, fmt.Sprintf("%d:%s", len(part), part))
+		}
+		key = strings.Join(parts, "##")
 	}
 	if m.dbg { // dbg for testing only, keeps the key human-readable
 		return key, nil

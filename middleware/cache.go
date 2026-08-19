@@ -121,30 +121,46 @@ func (c *CacheMiddleware) RoundTrip(req *http.Request) (*http.Response, error) {
 	return resp, nil
 }
 
-// makeKey generates a cache key based on the request details
+// makeKey generates a cache key based on the request details.
+// every part goes in as a length-prefixed field, so a value of one part can't be read as another one
 func (c *CacheMiddleware) makeKey(req *http.Request) string {
-	var sb strings.Builder
-	sb.WriteString(req.Method)
-	sb.WriteString(":")
-	sb.WriteString(req.URL.String())
+	// req.Host overrides the URL host on the wire, responses from different virtual hosts must not share an entry
+	host := req.Host
+	if host == "" {
+		host = req.URL.Host
+	}
 
+	body := ""
 	if c.includeBody && req.Body != nil {
-		body, err := io.ReadAll(req.Body)
-		if err == nil {
-			sb.Write(body)
-			req.Body = io.NopCloser(bytes.NewReader(body))
+		if b, err := io.ReadAll(req.Body); err == nil {
+			body = string(b)
+			req.Body = io.NopCloser(bytes.NewReader(b))
 		}
 	}
 
+	headersKey := ""
 	if len(c.headers) > 0 {
 		var headers []string
 		for _, h := range c.headers {
-			if vals := req.Header.Values(h); len(vals) > 0 {
-				headers = append(headers, fmt.Sprintf("%s:%s", h, strings.Join(vals, ",")))
+			vals := req.Header.Values(h)
+			if len(vals) == 0 {
+				continue
 			}
+			var hb strings.Builder
+			fmt.Fprintf(&hb, "%d:%s", len(h), h)
+			for _, v := range vals {
+				fmt.Fprintf(&hb, "%d:%s", len(v), v)
+			}
+			// the whole record is length-prefixed too, a multi-valued header can't look like several headers
+			headers = append(headers, fmt.Sprintf("%d:%s", hb.Len(), hb.String()))
 		}
 		sort.Strings(headers)
-		sb.WriteString(strings.Join(headers, "||"))
+		headersKey = strings.Join(headers, "")
+	}
+
+	var sb strings.Builder
+	for _, part := range []string{req.Method, req.URL.String(), host, body, headersKey} {
+		fmt.Fprintf(&sb, "%d:%s", len(part), part)
 	}
 
 	hash := sha256.Sum256([]byte(sb.String()))

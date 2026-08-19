@@ -154,6 +154,7 @@ By default, the cache key is generated using:
 
 - HTTP **method**
 - Full **URL**
+- Effective **host**, i.e. `Request.Host` when set, falling back to the host of the URL
 - (Optional) **Headers** (if `CacheWithHeaders` is enabled)
 - (Optional) **Body** (if `CacheWithBody` is enabled)
 
@@ -217,7 +218,7 @@ Cache expects the `LoadingCache` interface to implement a single method: `Get(ke
 
 #### Caching Key and Allowed Requests
 
-By default, only `GET` calls are cached. This can be changed with the `Methods(methods ...string)` option. The default key is composed of the full URL.
+By default, only `GET` calls are cached. This can be changed with the `Methods(methods ...string)` option. The default key is composed of the full URL, the effective host (`Request.Host` when set, otherwise the host of the URL) and the method.
 
 Several options define what part of the request will be used for the key:
 

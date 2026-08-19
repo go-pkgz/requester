@@ -227,7 +227,7 @@ func requestWithRepeater(ts *httptest.Server) {
 func startTestServer() *httptest.Server {
 	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		c := atomic.AddInt32(&inFly, 1)
-		log.Printf("request: %+v (%d)", r, c)
+		log.Printf("request: %+v (%d)", r, c)                        //nolint:gosec // demo server logging requests it serves to itself
 		time.Sleep(time.Duration(rand.IntN(100)) * time.Millisecond) //nolint:gosec // simulate random network latency
 		w.Header().Set("k1", "v1")
 		_, _ = w.Write([]byte("something"))
@@ -239,7 +239,7 @@ func startTestServerFailedFirst() *httptest.Server {
 	var n int32
 	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		c := atomic.AddInt32(&inFly, 1)
-		log.Printf("request: %+v (%d)", r, c)
+		log.Printf("request: %+v (%d)", r, c)                        //nolint:gosec // demo server logging requests it serves to itself
 		time.Sleep(time.Duration(rand.IntN(100)) * time.Millisecond) //nolint:gosec // simulate random network latency
 
 		if atomic.AddInt32(&n, 1) < 5 { // fail 5 first requests

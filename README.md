@@ -31,10 +31,11 @@ _Please note: this is not a replacement for `http.Client`, but rather a companio
 *Built-in middlewares:*
 
 - `Header` - appends user-defined headers to all requests. 
+- `SecretHeader` - appends a user-defined header carrying a credential, kept on the original host only
 - `MaxConcurrent` - sets maximum concurrency
 - `Retry` - sets retry on errors and status codes
 - `JSON` - sets headers `"Content-Type": "application/json"` and `"Accept": "application/json"`
-- `BasicAuth(user, passwd string)` - adds HTTP Basic Authentication
+- `BasicAuth(user, passwd string)` - adds HTTP Basic Authentication, kept on the original host only
 
 *Interfaces for external middlewares:*
 
@@ -54,6 +55,16 @@ See examples of the usage in [_example](https://github.com/go-pkgz/requester/tre
 
 ```go
 rq := requester.New(http.Client{}, middleware.Header("X-Auth", "123456789"))
+```
+
+Headers carrying credentials, i.e. `Authorization`, `Www-Authenticate`, `Cookie`, `Cookie2`, `Proxy-Authorization` and `Proxy-Authenticate`, are dropped as soon as a followed redirect leaves the host the request started from, the same way `http.Client` treats them. Any other header is set on every hop. Hosts are compared as they are written, so the unicode and the punycode form of an internationalised host count as two hosts and the credential stays behind.
+
+### SecretHeader middleware
+
+`SecretHeader` adds a header the same way `Header` does, but treats it as a credential regardless of its name. The header is set while the redirect chain stays on the host the request started from, or on one of its subdomains, and dropped once the chain leaves it, a value the caller set on the request itself included. Use it for custom headers carrying a secret:
+
+```go
+rq := requester.New(http.Client{}, middleware.SecretHeader("X-Auth", "123456789"))
 ```
 ### MaxConcurrent middleware
 
@@ -188,6 +199,8 @@ rq := requester.New(http.Client{}, middleware.JSON)
 ```go
 rq := requester.New(http.Client{}, middleware.BasicAuth("user", "passwd"))
 ```
+
+Credentials are set while the redirect chain stays on the host the request started from, or on one of its subdomains, and dropped once the chain leaves it.
 
 ----
 

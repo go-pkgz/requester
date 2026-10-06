@@ -4,7 +4,9 @@ import (
 	"context"
 	"errors"
 	"io"
+	"net"
 	"net/http"
+	"net/http/httptest"
 	"strings"
 	"sync/atomic"
 	"testing"
@@ -528,5 +530,155 @@ func TestRetry_RetryConditions(t *testing.T) {
 				RetryExcludeCodes(404),
 			)(rmock)
 		})
+	})
+}
+
+type closeRecorder struct {
+	io.Reader
+	closed atomic.Bool
+}
+
+func (c *closeRecorder) Close() error {
+	c.closed.Store(true)
+	return nil
+}
+
+// retried responses were dropped without closing the body, leaking a connection each
+func TestRetry_DiscardedResponses(t *testing.T) {
+	newBodies := func(n int) []*closeRecorder {
+		res := make([]*closeRecorder, n)
+		for i := range res {
+			res[i] = &closeRecorder{Reader: strings.NewReader("body")}
+		}
+		return res
+	}
+
+	t.Run("closes retried status responses and leaves the returned one open", func(t *testing.T) {
+		bodies := newBodies(3)
+		var attemptCount int32
+		rmock := &mocks.RoundTripper{RoundTripFunc: func(r *http.Request) (*http.Response, error) {
+			count := atomic.AddInt32(&attemptCount, 1)
+			if count < 3 {
+				return &http.Response{StatusCode: 502, Body: bodies[count-1]}, nil
+			}
+			return &http.Response{StatusCode: 200, Body: bodies[count-1]}, nil
+		}}
+
+		h := Retry(3, time.Millisecond)(rmock)
+		req, err := http.NewRequest("GET", "http://example.com/", http.NoBody)
+		require.NoError(t, err)
+
+		resp, err := h.RoundTrip(req)
+		require.NoError(t, err)
+		assert.Equal(t, 200, resp.StatusCode)
+		assert.True(t, bodies[0].closed.Load(), "first retried response should be closed")
+		assert.True(t, bodies[1].closed.Load(), "second retried response should be closed")
+		assert.False(t, bodies[2].closed.Load(), "returned response should stay open")
+	})
+
+	t.Run("closes response returned together with a transport error", func(t *testing.T) {
+		bodies := newBodies(2)
+		var attemptCount int32
+		rmock := &mocks.RoundTripper{RoundTripFunc: func(r *http.Request) (*http.Response, error) {
+			count := atomic.AddInt32(&attemptCount, 1)
+			if count < 2 {
+				return &http.Response{StatusCode: 502, Body: bodies[count-1]}, errors.New("network error")
+			}
+			return &http.Response{StatusCode: 200, Body: bodies[count-1]}, nil
+		}}
+
+		h := Retry(3, time.Millisecond)(rmock)
+		req, err := http.NewRequest("GET", "http://example.com/", http.NoBody)
+		require.NoError(t, err)
+
+		resp, err := h.RoundTrip(req)
+		require.NoError(t, err)
+		assert.Equal(t, 200, resp.StatusCode)
+		assert.True(t, bodies[0].closed.Load(), "response dropped after transport error should be closed")
+		assert.False(t, bodies[1].closed.Load(), "returned response should stay open")
+	})
+
+	t.Run("leaves the last response open when attempts are exhausted", func(t *testing.T) {
+		bodies := newBodies(3)
+		var attemptCount int32
+		rmock := &mocks.RoundTripper{RoundTripFunc: func(r *http.Request) (*http.Response, error) {
+			count := atomic.AddInt32(&attemptCount, 1)
+			return &http.Response{StatusCode: 503, Body: bodies[count-1]}, nil
+		}}
+
+		h := Retry(3, time.Millisecond)(rmock)
+		req, err := http.NewRequest("GET", "http://example.com/", http.NoBody)
+		require.NoError(t, err)
+
+		resp, err := h.RoundTrip(req)
+		require.NoError(t, err)
+		assert.Equal(t, 503, resp.StatusCode)
+		assert.True(t, bodies[0].closed.Load(), "first retried response should be closed")
+		assert.True(t, bodies[1].closed.Load(), "second retried response should be closed")
+		assert.False(t, bodies[2].closed.Load(), "last response is returned to the caller and should stay open")
+
+		data, err := io.ReadAll(resp.Body)
+		require.NoError(t, err)
+		assert.Equal(t, "body", string(data))
+	})
+
+	t.Run("closes retried response when context is cancelled during delay", func(t *testing.T) {
+		bodies := newBodies(1)
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
+		rmock := &mocks.RoundTripper{RoundTripFunc: func(r *http.Request) (*http.Response, error) {
+			time.AfterFunc(20*time.Millisecond, cancel)
+			return &http.Response{StatusCode: 503, Body: bodies[0]}, nil
+		}}
+
+		req, err := http.NewRequestWithContext(ctx, "GET", "http://example.com/", http.NoBody)
+		require.NoError(t, err)
+
+		h := Retry(5, 200*time.Millisecond, RetryWithJitter(0))(rmock)
+
+		_, err = h.RoundTrip(req)
+		require.ErrorIs(t, err, context.Canceled)
+		assert.True(t, bodies[0].closed.Load(), "retried response should be closed before the delay")
+	})
+
+	t.Run("releases connections of retried responses", func(t *testing.T) {
+		var calls, opened, closed atomic.Int32
+		srv := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+			if calls.Add(1)%3 != 0 {
+				w.WriteHeader(http.StatusBadGateway)
+				_, _ = io.WriteString(w, "upstream down")
+				return
+			}
+			_, _ = io.WriteString(w, "ok")
+		}))
+		srv.Config.ConnState = func(_ net.Conn, s http.ConnState) {
+			if s == http.StateNew {
+				opened.Add(1)
+			}
+			if s == http.StateClosed {
+				closed.Add(1)
+			}
+		}
+		srv.Start()
+		defer srv.Close()
+
+		transport := &http.Transport{}
+		h := Retry(3, time.Millisecond)(transport)
+
+		for range 5 {
+			req, err := http.NewRequest("GET", srv.URL, http.NoBody)
+			require.NoError(t, err)
+			resp, err := h.RoundTrip(req)
+			require.NoError(t, err)
+			assert.Equal(t, 200, resp.StatusCode)
+			_, err = io.Copy(io.Discard, resp.Body)
+			require.NoError(t, err)
+			require.NoError(t, resp.Body.Close())
+		}
+
+		assert.Equal(t, int32(15), calls.Load())
+		transport.CloseIdleConnections()
+		assert.Eventually(t, func() bool { return opened.Load() == closed.Load() }, time.Second, 10*time.Millisecond,
+			"every connection should be idle and closed, none held by a retried response")
 	})
 }

@@ -127,23 +127,32 @@ func (r *RetryMiddleware) RoundTrip(req *http.Request) (*http.Response, error) {
 		}
 
 		resp, err := r.next.RoundTrip(req)
-		if err != nil {
-			lastError = err
-			lastResponse = resp
-			continue
-		}
-
-		if !r.shouldRetry(resp) {
+		if err == nil && !r.shouldRetry(resp) {
 			return resp, nil
 		}
 
+		if err != nil {
+			lastError = err
+		}
 		lastResponse = resp
+		if attempt < attempts-1 {
+			r.discard(resp)
+		}
 	}
 
 	if lastError != nil {
 		return lastResponse, fmt.Errorf("retry: transport error after %d attempts: %w", attempts, lastError)
 	}
 	return lastResponse, nil
+}
+
+// discard closes the body of a response dropped in favor of another attempt, releasing its connection.
+// the body is not drained first: a read has no time bound and blocks the retry on a stalled upstream.
+func (r *RetryMiddleware) discard(resp *http.Response) {
+	if resp == nil || resp.Body == nil {
+		return
+	}
+	_ = resp.Body.Close()
 }
 
 // bufferRequestBody attempts to buffer the request body for retries
